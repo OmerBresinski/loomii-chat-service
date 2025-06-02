@@ -87,7 +87,7 @@ export const streamChatCompletion = async (
   forceAgent: boolean = false
 ): Promise<Readable> => {
   // Determine if we should use agent capabilities
-  const useAgent = forceAgent || shouldUseAgent(message);
+  const useAgent = true; //forceAgent || shouldUseAgent(message);
 
   if (useAgent) {
     console.log("🤖 Using agent with vector search for enhanced response");
