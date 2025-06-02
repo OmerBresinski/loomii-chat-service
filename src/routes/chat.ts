@@ -30,6 +30,10 @@ chatRouter.post("/chat", async (req: Request, res: Response) => {
     res.setHeader("Connection", "keep-alive");
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Headers", "Cache-Control");
+    res.setHeader("X-Accel-Buffering", "no"); // Disable nginx buffering
+
+    // Disable Express compression for this response
+    res.set("Content-Encoding", "identity");
 
     let stream;
 
@@ -46,6 +50,7 @@ chatRouter.post("/chat", async (req: Request, res: Response) => {
     // Pipe the stream to the response
     stream.on("data", (chunk: string) => {
       res.write(chunk);
+      // Force flush to prevent buffering - Express doesn't have flush, but write should be immediate
     });
 
     stream.on("end", () => {
@@ -78,6 +83,10 @@ chatRouter.post("/agent", async (req: Request, res: Response) => {
     res.setHeader("Connection", "keep-alive");
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Headers", "Cache-Control");
+    res.setHeader("X-Accel-Buffering", "no"); // Disable nginx buffering
+
+    // Disable Express compression for this response
+    res.set("Content-Encoding", "identity");
 
     // Get streaming response from agent service with vector search
     const stream = await streamAgentResponse(message, conversationId);
@@ -85,6 +94,7 @@ chatRouter.post("/agent", async (req: Request, res: Response) => {
     // Pipe the stream to the response
     stream.on("data", (chunk: string) => {
       res.write(chunk);
+      // Force flush to prevent buffering - Express doesn't have flush, but write should be immediate
     });
 
     stream.on("end", () => {

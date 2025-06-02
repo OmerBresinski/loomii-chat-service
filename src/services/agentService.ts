@@ -221,6 +221,8 @@ export const streamAgentResponse = async (
 ): Promise<Readable> => {
   const stream = new Readable({
     read() {},
+    objectMode: false,
+    highWaterMark: 0, // Disable internal buffering
   });
 
   try {
