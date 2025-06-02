@@ -211,7 +211,7 @@ Instructions:
 
 Remember: You are an expert analyst helping with cybersecurity market intelligence and competitive analysis, with a focus on actionable, high-impact recommendations.
 
-Important: Always provide the sources for the information in your response.`;
+Important: Always provide the sources links for the information in your response.`;
 };
 
 // Stream agent response with vector search context
