@@ -244,9 +244,8 @@ Important: Always provide the source links for the information in your response.
 Example format for including sources:
 
 ## Sources
-[Source 1](https://example.com/link1)
-[Source 2](https://example.com/link2)
-[Source 3](https://example.com/link3)
+[summary of source title](https://example.com/link1)
+..additional sources..
 `;
 };
 
