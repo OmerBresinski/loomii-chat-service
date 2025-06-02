@@ -211,7 +211,7 @@ Instructions:
 
 Remember: You are an expert analyst helping with cybersecurity market intelligence and competitive analysis, with a focus on actionable, high-impact recommendations.
 
-Important: Always provide the source links for the information in your response.
+Important: Always provide the source links for the information in your response. The links are properties of the metadata object in the search results.
 
 Example:
 
