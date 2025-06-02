@@ -111,46 +111,60 @@ const streamRegularChat = async (
     highWaterMark: 0, // Disable internal buffering
   });
 
-  try {
-    const llm = createLLM();
+  // Start streaming immediately in the background
+  setImmediate(async () => {
+    try {
+      const llm = createLLM();
 
-    // Get or create conversation history
-    const history = getOrCreateHistory(conversationId);
+      // Get or create conversation history
+      const history = getOrCreateHistory(conversationId);
 
-    // Add user message to history
-    const userMessage = new HumanMessage(message);
-    history.push(userMessage);
+      // Add user message to history
+      const userMessage = new HumanMessage(message);
+      history.push(userMessage);
 
-    // Stream response directly from LLM
-    // TODO: Integrate with LangGraph for more complex AI workflows
-    const streamResponse = await llm.stream(history);
+      // Stream response directly from LLM
+      // TODO: Integrate with LangGraph for more complex AI workflows
+      const streamResponse = await llm.stream(history);
 
-    let fullResponse = "";
+      let fullResponse = "";
 
-    // Process the streaming response
-    for await (const chunk of streamResponse) {
-      const content = chunk.content;
-      if (content) {
-        fullResponse += content;
-        stream.push(content);
+      // Process the streaming response
+      for await (const chunk of streamResponse) {
+        const content = chunk.content;
+        if (content) {
+          const contentStr =
+            typeof content === "string" ? content : JSON.stringify(content);
+          fullResponse += contentStr;
+          console.log(
+            `📤 Pushing chunk: "${contentStr.substring(0, 20)}..." (${
+              contentStr.length
+            } chars)`
+          );
+          stream.push(contentStr);
+
+          // Small delay to ensure chunks are sent individually
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
       }
+
+      // Add AI response to history
+      const aiMessage = new AIMessage(fullResponse);
+      history.push(aiMessage);
+
+      // Update conversation history
+      if (conversationId) {
+        conversationHistories.set(conversationId, history);
+      }
+
+      console.log("🏁 Stream ending");
+      // End the stream
+      stream.push(null);
+    } catch (error) {
+      console.error("Error in streamRegularChat:", error);
+      stream.emit("error", error);
     }
-
-    // Add AI response to history
-    const aiMessage = new AIMessage(fullResponse);
-    history.push(aiMessage);
-
-    // Update conversation history
-    if (conversationId) {
-      conversationHistories.set(conversationId, history);
-    }
-
-    // End the stream
-    stream.push(null);
-  } catch (error) {
-    console.error("Error in streamRegularChat:", error);
-    stream.emit("error", error);
-  }
+  });
 
   return stream;
 };

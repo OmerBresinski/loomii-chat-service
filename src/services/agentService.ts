@@ -225,104 +225,120 @@ export const streamAgentResponse = async (
     highWaterMark: 0, // Disable internal buffering
   });
 
-  try {
-    // Initialize vector store if needed
-    await initializeVectorStore();
+  // Start streaming immediately in the background
+  setImmediate(async () => {
+    try {
+      // Initialize vector store if needed
+      await initializeVectorStore();
 
-    const llm = createAgentLLM();
+      const llm = createAgentLLM();
 
-    // Get conversation history
-    const history = getOrCreateAgentHistory(conversationId);
+      // Get conversation history
+      const history = getOrCreateAgentHistory(conversationId);
 
-    // Analyze query and perform appropriate search
-    const queryAnalysis = analyzeQuery(message);
-    let searchResults: Document[] = [];
+      // Analyze query and perform appropriate search
+      const queryAnalysis = analyzeQuery(message);
+      let searchResults: Document[] = [];
 
-    console.log(`🤖 Agent analyzing query: "${message}"`);
-    console.log(`🔍 Search strategy: ${queryAnalysis.searchType}`);
+      console.log(`🤖 Agent analyzing query: "${message}"`);
+      console.log(`🔍 Search strategy: ${queryAnalysis.searchType}`);
 
-    switch (queryAnalysis.searchType) {
-      case "quickWins":
-        searchResults = await getQuickWins(queryAnalysis.k || 5);
-        break;
-      case "highValue":
-        searchResults = await getHighValueActions(queryAnalysis.k || 5);
-        break;
-      case "valueEffort":
-        searchResults = await getActionsByValueEffortRatio(
-          queryAnalysis.k || 5
-        );
-        break;
-      case "company":
-        if (queryAnalysis.searchTerm) {
-          searchResults = await getInsightsByCompany(queryAnalysis.searchTerm);
-        }
-        break;
-      case "impact":
-        if (queryAnalysis.searchTerm) {
-          searchResults = await getInsightsByImpact(
-            queryAnalysis.searchTerm as "high" | "medium" | "low"
+      switch (queryAnalysis.searchType) {
+        case "quickWins":
+          searchResults = await getQuickWins(queryAnalysis.k || 5);
+          break;
+        case "highValue":
+          searchResults = await getHighValueActions(queryAnalysis.k || 5);
+          break;
+        case "valueEffort":
+          searchResults = await getActionsByValueEffortRatio(
+            queryAnalysis.k || 5
           );
-        }
-        break;
-      case "similarity":
-      default:
-        searchResults = await performSimilaritySearch(
-          message,
-          queryAnalysis.k || 3
-        );
-        break;
-    }
-
-    // Format search results for context
-    const formattedResults = formatSearchResults(searchResults);
-
-    // Create system message with search context
-    const systemPrompt = createSystemPrompt(
-      formattedResults,
-      queryAnalysis.searchType
-    );
-    const systemMessage = new AIMessage(systemPrompt);
-
-    // Add user message to history
-    const userMessage = new HumanMessage(message);
-
-    // Create context-aware conversation
-    const contextualHistory = [systemMessage, ...history, userMessage];
-
-    console.log(`📊 Found ${searchResults.length} relevant insights`);
-    console.log(`🚀 Streaming agent response...`);
-
-    // Stream response from LLM with context
-    const streamResponse = await llm.stream(contextualHistory);
-
-    let fullResponse = "";
-
-    // Process the streaming response
-    for await (const chunk of streamResponse) {
-      const content = chunk.content;
-      if (content) {
-        fullResponse += content;
-        stream.push(content);
+          break;
+        case "company":
+          if (queryAnalysis.searchTerm) {
+            searchResults = await getInsightsByCompany(
+              queryAnalysis.searchTerm
+            );
+          }
+          break;
+        case "impact":
+          if (queryAnalysis.searchTerm) {
+            searchResults = await getInsightsByImpact(
+              queryAnalysis.searchTerm as "high" | "medium" | "low"
+            );
+          }
+          break;
+        case "similarity":
+        default:
+          searchResults = await performSimilaritySearch(
+            message,
+            queryAnalysis.k || 3
+          );
+          break;
       }
+
+      // Format search results for context
+      const formattedResults = formatSearchResults(searchResults);
+
+      // Create system message with search context
+      const systemPrompt = createSystemPrompt(
+        formattedResults,
+        queryAnalysis.searchType
+      );
+      const systemMessage = new AIMessage(systemPrompt);
+
+      // Add user message to history
+      const userMessage = new HumanMessage(message);
+
+      // Create context-aware conversation
+      const contextualHistory = [systemMessage, ...history, userMessage];
+
+      console.log(`📊 Found ${searchResults.length} relevant insights`);
+      console.log(`🚀 Streaming agent response...`);
+
+      // Stream response from LLM with context
+      const streamResponse = await llm.stream(contextualHistory);
+
+      let fullResponse = "";
+
+      // Process the streaming response
+      for await (const chunk of streamResponse) {
+        const content = chunk.content;
+        if (content) {
+          const contentStr =
+            typeof content === "string" ? content : JSON.stringify(content);
+          fullResponse += contentStr;
+          console.log(
+            `📤 Agent pushing chunk: "${contentStr.substring(0, 20)}..." (${
+              contentStr.length
+            } chars)`
+          );
+          stream.push(contentStr);
+
+          // Small delay to ensure chunks are sent individually
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+      }
+
+      // Add messages to history (without system message)
+      history.push(userMessage);
+      const aiMessage = new AIMessage(fullResponse);
+      history.push(aiMessage);
+
+      // Update conversation history
+      if (conversationId) {
+        agentConversationHistories.set(conversationId, history);
+      }
+
+      console.log("🏁 Agent stream ending");
+      // End the stream
+      stream.push(null);
+    } catch (error) {
+      console.error("❌ Error in streamAgentResponse:", error);
+      stream.emit("error", error);
     }
-
-    // Add messages to history (without system message)
-    history.push(userMessage);
-    const aiMessage = new AIMessage(fullResponse);
-    history.push(aiMessage);
-
-    // Update conversation history
-    if (conversationId) {
-      agentConversationHistories.set(conversationId, history);
-    }
-
-    // End the stream
-    stream.push(null);
-  } catch (error) {
-    console.error("❌ Error in streamAgentResponse:", error);
-    stream.emit("error", error);
-  }
+  });
 
   return stream;
 };
