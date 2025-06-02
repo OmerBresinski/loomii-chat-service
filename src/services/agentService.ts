@@ -211,7 +211,14 @@ Instructions:
 
 Remember: You are an expert analyst helping with cybersecurity market intelligence and competitive analysis, with a focus on actionable, high-impact recommendations.
 
-Important: Always provide the sources links for the information in your response.`;
+Important: Always provide the source links for the information in your response.
+
+Example:
+
+[Source 1](https://www.google.com)
+[Source 2](https://www.google.com)
+[Source 3](https://www.google.com)
+`;
 };
 
 // Stream agent response with vector search context
