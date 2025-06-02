@@ -246,7 +246,8 @@ Example format for including sources:
 ## Sources
 [summary of source title](https://example.com/link1)
 ..additional sources..
-`;
+
+Make sure to ask the user if they want assistance with moving forward with the recommendations, such as creating a plan, timeline, or next steps.`;
 };
 
 // Stream agent response with vector search context
