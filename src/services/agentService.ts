@@ -55,6 +55,17 @@ const formatSearchResults = (results: Document[]): string => {
 
       // Format differently based on document type
       if (metadata.documentType === "action") {
+        // Format source links for actions
+        const sourceLinks =
+          metadata.links && Array.isArray(metadata.links)
+            ? metadata.links
+                .map(
+                  (link: string, linkIndex: number) =>
+                    `[Source ${linkIndex + 1}](${link})`
+                )
+                .join("\n")
+            : "No source links available";
+
         return `
 --- Action ${index + 1} ---
 Company: ${metadata.company}
@@ -65,14 +76,29 @@ Value-to-Effort Ratio: ${metadata.valueToEffortRatio}
 Quick Win Category: ${metadata.quickWinCategory}
 Context: ${metadata.insightTitle}
 Impact Level: ${metadata.impact}
+Source Links:
+${sourceLinks}
 `;
       } else {
+        // Format source links for insights
+        const sourceLinks =
+          metadata.links && Array.isArray(metadata.links)
+            ? metadata.links
+                .map(
+                  (link: string, linkIndex: number) =>
+                    `[Source ${linkIndex + 1}](${link})`
+                )
+                .join("\n")
+            : "No source links available";
+
         return `
 --- Insight ${index + 1} ---
 Company: ${metadata.company}
 Title: ${metadata.title}
 Impact: ${metadata.impact}
 Content: ${doc.pageContent}
+Source Links:
+${sourceLinks}
 `;
       }
     })
@@ -208,16 +234,19 @@ Instructions:
 - Be concise but thorough in your responses
 - If asked about companies not in the data, clearly state that information is not available
 - For competitive analysis, explain how each action helps versus competitors
+- **IMPORTANT: Always include the source links provided in the search results at the end of your response**
+- Format source links exactly as shown in the search results using markdown link format
 
 Remember: You are an expert analyst helping with cybersecurity market intelligence and competitive analysis, with a focus on actionable, high-impact recommendations.
 
 Important: Always provide the source links for the information in your response. The links are properties of the metadata object in the search results.
 
-Example:
+Example format for including sources:
 
-[Source 1](https://www.google.com)
-[Source 2](https://www.google.com)
-[Source 3](https://www.google.com)
+## Sources
+[Source 1](https://example.com/link1)
+[Source 2](https://example.com/link2)
+[Source 3](https://example.com/link3)
 `;
 };
 
