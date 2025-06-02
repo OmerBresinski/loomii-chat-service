@@ -1,24 +1,18 @@
 # Loomii Chat Service
 
-A TypeScript Express server that provides streaming AI chat completions using LangGraph and OpenAI's GPT-4o Mini.
+A TypeScript Express chat service with OpenAI integration and vector store capabilities for cybersecurity market intelligence.
 
 ## Features
 
-- 🚀 Express.js server with TypeScript
-- 💬 Streaming chat completions using ReadableStream
-- 🧠 LangGraph integration for AI workflow management
-- 🔄 Conversation history management
-- 🌐 CORS enabled for cross-origin requests
-- 📡 Health check endpoint
-- 🧪 Built-in CLI testing tool
+- **Smart Chat**: Automatically detects when to use agent capabilities based on message content
+- **Agent Mode**: Vector search-powered responses using cybersecurity market intelligence data
+- **Regular Chat**: Standard conversational AI responses
+- **Direct Search**: Query the vector store directly for specific information
+- **Mode Analysis**: Analyze messages to recommend the best chat mode
+- **Streaming Responses**: Real-time response streaming for all chat modes
+- **Conversation History**: Persistent conversation tracking
 
-## Prerequisites
-
-- Node.js (v18 or higher)
-- npm or yarn
-- OpenAI API key
-
-## Setup
+## Quick Start
 
 1. **Install dependencies:**
    ```bash
@@ -28,109 +22,172 @@ A TypeScript Express server that provides streaming AI chat completions using La
 2. **Set up environment variables:**
    ```bash
    cp .env.example .env
-   ```
-   
-   Edit `.env` and add your OpenAI API key:
-   ```
-   OPENAI_API_KEY=your_openai_api_key_here
-   PORT=3000
+   # Edit .env with your OpenAI API key
    ```
 
-3. **Build the project:**
+3. **Build and start:**
    ```bash
    npm run build
+   npm start
    ```
 
-4. **Start the development server:**
+4. **Development mode:**
    ```bash
    npm run dev
    ```
 
-   Or start the production server:
-   ```bash
-   npm start
-   ```
-
-## Testing
-
-### Quick CLI Test
-Once your server is running, you can test it directly from the command line:
-
-```bash
-npm run chat "Hello, how are you?"
-```
-
-```bash
-npm run chat "Tell me a joke about programming"
-```
-
-```bash
-npm run chat "What is the meaning of life?"
-```
-
-The CLI test tool will:
-- ✅ Check if the server is running
-- 📤 Send your message to the chat endpoint
-- 📥 Stream the AI response in real-time
-- 🔍 Provide helpful error messages and troubleshooting tips
-
 ## API Endpoints
 
-### Health Check
-```
-GET /health
-```
-Returns server status and timestamp.
+### Chat Endpoints
 
-### Chat Completion (Streaming)
-```
+#### Smart Chat (Auto-Detection)
+```bash
 POST /api/chat
-Content-Type: application/json
-
 {
-  "message": "Hello, how are you?",
-  "conversationId": "optional-conversation-id"
+  "message": "What cybersecurity trends should I know about?",
+  "conversationId": "optional-id",
+  "mode": "auto" // optional: "auto", "agent", "regular"
 }
 ```
 
-Returns a streaming text response. The response is streamed as plain text chunks.
-
-### Get Conversation History
-```
-GET /api/chat/:conversationId
-```
-
-Returns the conversation history for a given conversation ID.
-
-## Usage Examples
-
-### CLI Testing (Recommended for quick tests):
+#### Agent Chat (Vector Search)
 ```bash
-# Start the server in one terminal
-npm run dev
-
-# Test in another terminal
-npm run chat "What's the weather like?"
+POST /api/agent
+{
+  "message": "What does Digital Guardian focus on?",
+  "conversationId": "optional-id"
+}
 ```
 
-### Using curl for streaming chat:
+#### Direct Search
+```bash
+POST /api/search
+{
+  "query": "cybersecurity trends",
+  "searchType": "similarity", // "similarity", "quickWins", "highValue"
+  "k": 5,
+  "includeScores": true,
+  "minValue": 7 // for highValue search
+}
+```
+
+#### Mode Analysis
+```bash
+POST /api/analyze
+{
+  "message": "What are the latest cybersecurity threats?"
+}
+```
+
+#### Conversation History
+```bash
+GET /api/chat/:conversationId    # Regular chat history
+GET /api/agent/:conversationId   # Agent chat history
+```
+
+## Testing with CLI
+
+The project includes a comprehensive test client for easy testing:
+
+### Basic Usage
+```bash
+# Smart chat (auto-detects agent need)
+npm run chat "What cybersecurity trends should I know about?"
+
+# Agent mode with vector search
+npm run chat --agent "What does Digital Guardian focus on?"
+
+# Direct search (non-streaming)
+npm run chat --search "cybersecurity market intelligence"
+
+# Analyze chat mode recommendation
+npm run chat --analyze "What are quick wins for cybersecurity?"
+
+# Force chat endpoint to use agent mode
+npm run chat --chat-agent "Tell me about cybersecurity companies"
+
+# Force chat endpoint to use regular mode
+npm run chat --chat-regular "Hello, how are you?"
+```
+
+### Examples
+
+**Smart Chat (Auto-Detection):**
+```bash
+npm run chat "What are the top cybersecurity quick wins?"
+# Automatically uses agent mode due to keywords
+```
+
+**Agent Mode:**
+```bash
+npm run chat --agent "What does CrowdStrike specialize in?"
+# Uses vector search for cybersecurity intelligence
+```
+
+**Direct Search:**
+```bash
+npm run chat --search "threat intelligence"
+# Returns structured search results
+```
+
+**Mode Analysis:**
+```bash
+npm run chat --analyze "What are the best ROI security actions?"
+# Analyzes and recommends agent mode
+```
+
+## cURL Examples
+
+### Smart Chat
 ```bash
 curl -X POST http://localhost:3000/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Tell me a joke", "conversationId": "test-123"}' \
+  -d '{"message": "What cybersecurity trends should I know about?"}' \
   --no-buffer
 ```
 
-### Using JavaScript fetch:
+### Agent Chat with Vector Search
+```bash
+curl -X POST http://localhost:3000/api/agent \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What does Digital Guardian focus on?"}' \
+  --no-buffer
+```
+
+### Quick Wins Search
+```bash
+curl -X POST http://localhost:3000/api/search \
+  -H "Content-Type: application/json" \
+  -d '{"searchType": "quickWins", "k": 5}'
+```
+
+### High Value Actions Search
+```bash
+curl -X POST http://localhost:3000/api/search \
+  -H "Content-Type: application/json" \
+  -d '{"searchType": "highValue", "k": 5, "minValue": 7}'
+```
+
+### Mode Analysis
+```bash
+curl -X POST http://localhost:3000/api/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What are the best cybersecurity investments?"}'
+```
+
+## JavaScript Fetch Example
+
 ```javascript
+// Smart chat with streaming
 const response = await fetch('http://localhost:3000/api/chat', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
   },
   body: JSON.stringify({
-    message: 'Hello, how are you?',
-    conversationId: 'my-conversation'
+    message: 'What are the top cybersecurity quick wins?',
+    conversationId: 'my-conversation-123',
+    mode: 'auto' // Let the system decide
   })
 });
 
@@ -142,56 +199,61 @@ while (true) {
   if (done) break;
   
   const chunk = decoder.decode(value);
-  console.log(chunk); // Process each chunk of the response
+  console.log(chunk);
 }
 ```
 
-## Project Structure
+## Vector Store Capabilities
 
+The service includes a sophisticated vector store with cybersecurity market intelligence:
+
+- **Company Insights**: Information about cybersecurity companies and their focus areas
+- **Action-Level Intelligence**: Specific security actions with value/effort scores
+- **Quick Wins Detection**: Automatically identifies high-impact, low-effort actions
+- **High-Value Actions**: Finds actions with the highest business value
+- **Smart Query Analysis**: Detects user intent and routes to appropriate search methods
+
+## Environment Variables
+
+```bash
+OPENAI_API_KEY=your_openai_api_key_here
+PORT=3000
+NODE_ENV=development
 ```
-src/
-├── index.ts              # Main server file
-├── routes/
-│   └── chat.ts          # Chat API routes
-├── services/
-│   └── chatService.ts   # LangGraph + OpenAI integration (functional)
-└── test-client.ts       # CLI testing tool
-```
-
-## Technologies Used
-
-- **Express.js** - Web framework
-- **TypeScript** - Type safety
-- **LangGraph** - AI workflow orchestration
-- **LangChain** - AI application framework
-- **OpenAI** - GPT-4o Mini for chat completions
-- **Node.js Streams** - For streaming responses
 
 ## Development
 
-- `npm run dev` - Start development server with hot reload
-- `npm run build` - Build TypeScript to JavaScript
-- `npm start` - Start production server
-- `npm run chat "message"` - Test the chat service from CLI
+```bash
+# Install dependencies
+npm install
 
-## Troubleshooting
+# Run in development mode
+npm run dev
 
-### Common Issues:
+# Build for production
+npm run build
 
-1. **Connection refused error:**
-   - Make sure the server is running with `npm run dev`
+# Start production server
+npm start
 
-2. **Unauthorized/401 errors:**
-   - Check that your `OPENAI_API_KEY` is set in the `.env` file
+# Test the service
+npm run chat "Hello world"
+```
 
-3. **Empty responses:**
-   - Verify your OpenAI API key has sufficient credits
-   - Check the server logs for detailed error messages
+## Architecture
 
-4. **TypeScript compilation errors:**
-   - Run `npm install` to ensure all dependencies are installed
-   - Check that your Node.js version is 18 or higher
+- **Express.js**: Web framework
+- **TypeScript**: Type safety and better development experience
+- **OpenAI**: LLM integration for chat responses
+- **LangChain**: Vector store and document processing
+- **FAISS**: Vector similarity search
+- **Server-Sent Events**: Real-time streaming responses
 
-## License
+## Error Handling
 
-ISC 
+The service includes comprehensive error handling:
+- Connection timeouts
+- Invalid API keys
+- Malformed requests
+- Vector store initialization errors
+- Streaming interruptions
