@@ -13,12 +13,13 @@ import {
   getActionsByValueEffortRatio,
 } from "./vectorStore";
 import dotenv from "dotenv";
+import {
+  getOrCreateConversationHistory,
+  updateConversationHistory,
+} from "./conversationHistory";
 
 // Load environment variables
 dotenv.config();
-
-// Global conversation histories storage for agent
-const agentConversationHistories = new Map<string, BaseMessage[]>();
 
 // Initialize OpenAI ChatGPT for the agent
 const createAgentLLM = (): ChatOpenAI => {
@@ -28,19 +29,6 @@ const createAgentLLM = (): ChatOpenAI => {
     streaming: true,
     openAIApiKey: process.env.OPENAI_API_KEY,
   });
-};
-
-// Get or create agent conversation history
-const getOrCreateAgentHistory = (conversationId?: string): BaseMessage[] => {
-  if (!conversationId) {
-    return [];
-  }
-
-  if (!agentConversationHistories.has(conversationId)) {
-    agentConversationHistories.set(conversationId, []);
-  }
-
-  return agentConversationHistories.get(conversationId)!;
 };
 
 // Format search results for the LLM context
@@ -253,127 +241,126 @@ Make sure to always end the response with a question asking the user if they wan
 // Stream agent response with vector search context
 export const streamAgentResponse = async (
   message: string,
-  conversationId?: string
-): Promise<Readable> => {
-  const stream = new Readable({
-    read() {},
-    objectMode: false,
-    highWaterMark: 0, // Disable internal buffering
-  });
+  conversationId: string = "default"
+): Promise<ReadableStream> => {
+  const history = getOrCreateConversationHistory(conversationId);
 
-  // Start streaming immediately in the background
-  setImmediate(async () => {
-    try {
-      // Initialize vector store if needed
-      await initializeVectorStore();
+  // Add user message to history
+  const userMessage = new HumanMessage(message);
+  history.push(userMessage);
 
-      const llm = createAgentLLM();
+  // Create a readable stream
+  const stream = new ReadableStream({
+    async start(controller) {
+      // Start streaming immediately in background
+      setImmediate(async () => {
+        try {
+          // Initialize vector store if needed
+          await initializeVectorStore();
 
-      // Get conversation history
-      const history = getOrCreateAgentHistory(conversationId);
+          const llm = createAgentLLM();
 
-      // Analyze query and perform appropriate search
-      const queryAnalysis = analyzeQuery(message);
-      let searchResults: Document[] = [];
+          // Analyze query and perform appropriate search
+          const queryAnalysis = analyzeQuery(message);
+          let searchResults: Document[] = [];
 
-      console.log(`🤖 Agent analyzing query: "${message}"`);
-      console.log(`🔍 Search strategy: ${queryAnalysis.searchType}`);
+          console.log(`🤖 Agent analyzing query: "${message}"`);
+          console.log(`🔍 Search strategy: ${queryAnalysis.searchType}`);
 
-      switch (queryAnalysis.searchType) {
-        case "quickWins":
-          searchResults = await getQuickWins(queryAnalysis.k || 5);
-          break;
-        case "highValue":
-          searchResults = await getHighValueActions(queryAnalysis.k || 5);
-          break;
-        case "valueEffort":
-          searchResults = await getActionsByValueEffortRatio(
-            queryAnalysis.k || 5
-          );
-          break;
-        case "company":
-          if (queryAnalysis.searchTerm) {
-            searchResults = await getInsightsByCompany(
-              queryAnalysis.searchTerm
-            );
+          switch (queryAnalysis.searchType) {
+            case "quickWins":
+              searchResults = await getQuickWins(queryAnalysis.k || 5);
+              break;
+            case "highValue":
+              searchResults = await getHighValueActions(queryAnalysis.k || 5);
+              break;
+            case "valueEffort":
+              searchResults = await getActionsByValueEffortRatio(
+                queryAnalysis.k || 5
+              );
+              break;
+            case "company":
+              if (queryAnalysis.searchTerm) {
+                searchResults = await getInsightsByCompany(
+                  queryAnalysis.searchTerm
+                );
+              }
+              break;
+            case "impact":
+              if (queryAnalysis.searchTerm) {
+                searchResults = await getInsightsByImpact(
+                  queryAnalysis.searchTerm as "high" | "medium" | "low"
+                );
+              }
+              break;
+            case "similarity":
+            default:
+              searchResults = await performSimilaritySearch(
+                message,
+                queryAnalysis.k || 3
+              );
+              break;
           }
-          break;
-        case "impact":
-          if (queryAnalysis.searchTerm) {
-            searchResults = await getInsightsByImpact(
-              queryAnalysis.searchTerm as "high" | "medium" | "low"
-            );
+
+          // Format search results for context
+          const formattedResults = formatSearchResults(searchResults);
+
+          // Create system message with search context
+          const systemPrompt = createSystemPrompt(
+            formattedResults,
+            queryAnalysis.searchType
+          );
+          const systemMessage = new AIMessage(systemPrompt);
+
+          // Create context-aware conversation
+          const contextualHistory = [systemMessage, ...history, userMessage];
+
+          console.log(`📊 Found ${searchResults.length} relevant insights`);
+          console.log(`🚀 Streaming agent response...`);
+
+          // Stream response from LLM with context
+          const streamResponse = await llm.stream(contextualHistory);
+
+          let fullResponse = "";
+
+          // Process the streaming response
+          for await (const chunk of streamResponse) {
+            const content = chunk.content;
+            if (content) {
+              const contentStr =
+                typeof content === "string" ? content : JSON.stringify(content);
+              fullResponse += contentStr;
+              console.log(
+                `📤 Agent pushing chunk: "${contentStr.substring(0, 20)}..." (${
+                  contentStr.length
+                } chars)`
+              );
+              controller.enqueue(contentStr);
+
+              // Small delay to ensure chunks are sent individually
+              await new Promise((resolve) => setTimeout(resolve, 10));
+            }
           }
-          break;
-        case "similarity":
-        default:
-          searchResults = await performSimilaritySearch(
-            message,
-            queryAnalysis.k || 3
-          );
-          break;
-      }
 
-      // Format search results for context
-      const formattedResults = formatSearchResults(searchResults);
+          // Add messages to history (without system message)
+          history.push(userMessage);
+          const aiMessage = new AIMessage(fullResponse);
+          history.push(aiMessage);
 
-      // Create system message with search context
-      const systemPrompt = createSystemPrompt(
-        formattedResults,
-        queryAnalysis.searchType
-      );
-      const systemMessage = new AIMessage(systemPrompt);
+          // Update conversation history
+          if (conversationId) {
+            updateConversationHistory(conversationId, history);
+          }
 
-      // Add user message to history
-      const userMessage = new HumanMessage(message);
-
-      // Create context-aware conversation
-      const contextualHistory = [systemMessage, ...history, userMessage];
-
-      console.log(`📊 Found ${searchResults.length} relevant insights`);
-      console.log(`🚀 Streaming agent response...`);
-
-      // Stream response from LLM with context
-      const streamResponse = await llm.stream(contextualHistory);
-
-      let fullResponse = "";
-
-      // Process the streaming response
-      for await (const chunk of streamResponse) {
-        const content = chunk.content;
-        if (content) {
-          const contentStr =
-            typeof content === "string" ? content : JSON.stringify(content);
-          fullResponse += contentStr;
-          console.log(
-            `📤 Agent pushing chunk: "${contentStr.substring(0, 20)}..." (${
-              contentStr.length
-            } chars)`
-          );
-          stream.push(contentStr);
-
-          // Small delay to ensure chunks are sent individually
-          await new Promise((resolve) => setTimeout(resolve, 10));
+          console.log("🏁 Agent stream ending");
+          // End the stream
+          controller.close();
+        } catch (error) {
+          console.error("Error in agent streaming:", error);
+          controller.error(error);
         }
-      }
-
-      // Add messages to history (without system message)
-      history.push(userMessage);
-      const aiMessage = new AIMessage(fullResponse);
-      history.push(aiMessage);
-
-      // Update conversation history
-      if (conversationId) {
-        agentConversationHistories.set(conversationId, history);
-      }
-
-      console.log("🏁 Agent stream ending");
-      // End the stream
-      stream.push(null);
-    } catch (error) {
-      console.error("❌ Error in streamAgentResponse:", error);
-      stream.emit("error", error);
-    }
+      });
+    },
   });
 
   return stream;
@@ -383,14 +370,14 @@ export const streamAgentResponse = async (
 export const getAgentConversationHistory = async (
   conversationId: string
 ): Promise<BaseMessage[]> => {
-  return agentConversationHistories.get(conversationId) || [];
+  return getOrCreateConversationHistory(conversationId) || [];
 };
 
 // Clear agent conversation history
 export const clearAgentConversationHistory = async (
   conversationId: string
 ): Promise<void> => {
-  agentConversationHistories.delete(conversationId);
+  updateConversationHistory(conversationId, []);
 };
 
 // Enhanced search orionData with new search types

@@ -4,12 +4,16 @@ import { HumanMessage, AIMessage, BaseMessage } from "@langchain/core/messages";
 import { InMemoryStore } from "@langchain/core/stores";
 import { streamAgentResponse } from "./agentService";
 import dotenv from "dotenv";
+import {
+  getOrCreateConversationHistory,
+  updateConversationHistory,
+} from "./conversationHistory";
 
 // Load environment variables
 dotenv.config();
 
 // Global conversation histories storage
-const conversationHistories = new Map<string, BaseMessage[]>();
+// const conversationHistories = new Map<string, BaseMessage[]>();
 
 // Initialize OpenAI ChatGPT 4o mini
 const createLLM = (): ChatOpenAI => {
@@ -19,19 +23,6 @@ const createLLM = (): ChatOpenAI => {
     streaming: true,
     openAIApiKey: process.env.OPENAI_API_KEY,
   });
-};
-
-// Get or create conversation history
-const getOrCreateHistory = (conversationId?: string): BaseMessage[] => {
-  if (!conversationId) {
-    return [];
-  }
-
-  if (!conversationHistories.has(conversationId)) {
-    conversationHistories.set(conversationId, []);
-  }
-
-  return conversationHistories.get(conversationId)!;
 };
 
 // Detect if a query would benefit from agent/vector search
@@ -83,87 +74,78 @@ const shouldUseAgent = (message: string): boolean => {
 // Enhanced stream chat completion with automatic agent integration
 export const streamChatCompletion = async (
   message: string,
-  conversationId?: string,
-  forceAgent: boolean = false
-): Promise<Readable> => {
-  // Determine if we should use agent capabilities
-  const useAgent = true; //forceAgent || shouldUseAgent(message);
+  conversationId: string = "default",
+  forceAgent?: boolean
+): Promise<ReadableStream> => {
+  const useAgent = forceAgent || shouldUseAgent(message);
 
   if (useAgent) {
-    console.log("🤖 Using agent with vector search for enhanced response");
-    // Use agent service for cybersecurity market intelligence queries
-    return streamAgentResponse(message, conversationId);
+    return streamChatWithAgent(message, conversationId);
+  } else {
+    return streamRegularChatOnly(message, conversationId);
   }
-
-  // Use regular chat for general queries
-  console.log("💬 Using regular chat for general conversation");
-  return streamRegularChat(message, conversationId);
 };
 
 // Regular chat functionality (original implementation)
 const streamRegularChat = async (
   message: string,
-  conversationId?: string
-): Promise<Readable> => {
-  const stream = new Readable({
-    read() {},
-    objectMode: false,
-    highWaterMark: 0, // Disable internal buffering
-  });
+  conversationId: string = "default"
+): Promise<ReadableStream> => {
+  const history = getOrCreateConversationHistory(conversationId);
 
-  // Start streaming immediately in the background
-  setImmediate(async () => {
-    try {
-      const llm = createLLM();
+  // Add user message to history
+  const userMessage = new HumanMessage(message);
+  history.push(userMessage);
 
-      // Get or create conversation history
-      const history = getOrCreateHistory(conversationId);
+  // Create a readable stream
+  const stream = new ReadableStream({
+    async start(controller) {
+      // Start streaming immediately in background
+      setImmediate(async () => {
+        try {
+          let fullResponse = "";
 
-      // Add user message to history
-      const userMessage = new HumanMessage(message);
-      history.push(userMessage);
+          // Initialize LLM
+          const llm = createLLM();
 
-      // Stream response directly from LLM
-      // TODO: Integrate with LangGraph for more complex AI workflows
-      const streamResponse = await llm.stream(history);
+          // Get streaming response from LLM
+          const llmStream = await llm.stream([...history]);
 
-      let fullResponse = "";
+          // Process the stream
+          for await (const chunk of llmStream) {
+            const content = chunk.content;
+            if (content) {
+              const contentStr =
+                typeof content === "string" ? content : JSON.stringify(content);
+              fullResponse += contentStr;
 
-      // Process the streaming response
-      for await (const chunk of streamResponse) {
-        const content = chunk.content;
-        if (content) {
-          const contentStr =
-            typeof content === "string" ? content : JSON.stringify(content);
-          fullResponse += contentStr;
-          console.log(
-            `📤 Pushing chunk: "${contentStr.substring(0, 20)}..." (${
-              contentStr.length
-            } chars)`
-          );
-          stream.push(contentStr);
+              console.log(
+                `Streaming chunk: ${
+                  contentStr.length
+                } chars, content: ${contentStr.substring(0, 50)}...`
+              );
 
-          // Small delay to ensure chunks are sent individually
-          await new Promise((resolve) => setTimeout(resolve, 10));
+              // Enqueue the chunk
+              controller.enqueue(new TextEncoder().encode(contentStr));
+
+              // Small delay to ensure chunks are sent individually
+              await new Promise((resolve) => setTimeout(resolve, 10));
+            }
+          }
+
+          // Add AI response to conversation history
+          const aiMessage = new AIMessage(fullResponse);
+          history.push(aiMessage);
+          updateConversationHistory(conversationId, history);
+
+          // Close the stream
+          controller.close();
+        } catch (error) {
+          console.error("Error in streaming:", error);
+          controller.error(error);
         }
-      }
-
-      // Add AI response to history
-      const aiMessage = new AIMessage(fullResponse);
-      history.push(aiMessage);
-
-      // Update conversation history
-      if (conversationId) {
-        conversationHistories.set(conversationId, history);
-      }
-
-      console.log("🏁 Stream ending");
-      // End the stream
-      stream.push(null);
-    } catch (error) {
-      console.error("Error in streamRegularChat:", error);
-      stream.emit("error", error);
-    }
+      });
+    },
   });
 
   return stream;
@@ -172,33 +154,41 @@ const streamRegularChat = async (
 // Stream chat with explicit agent mode
 export const streamChatWithAgent = async (
   message: string,
-  conversationId?: string
-): Promise<Readable> => {
-  console.log("🤖 Explicitly using agent mode with vector search");
+  conversationId: string = "default"
+): Promise<ReadableStream> => {
   return streamAgentResponse(message, conversationId);
 };
 
 // Stream regular chat without agent
 export const streamRegularChatOnly = async (
   message: string,
-  conversationId?: string
-): Promise<Readable> => {
-  console.log("💬 Explicitly using regular chat mode");
+  conversationId: string = "default"
+): Promise<ReadableStream> => {
+  const history = getOrCreateConversationHistory(conversationId);
+
+  // ... existing code ...
+
   return streamRegularChat(message, conversationId);
 };
 
 // Get conversation history
 export const getConversationHistory = async (
-  conversationId: string
-): Promise<BaseMessage[]> => {
-  return conversationHistories.get(conversationId) || [];
+  conversationId: string = "default"
+) => {
+  const history = getOrCreateConversationHistory(conversationId);
+  return history;
 };
 
 // Clear conversation history
 export const clearConversationHistory = async (
-  conversationId: string
-): Promise<void> => {
-  conversationHistories.delete(conversationId);
+  conversationId: string = "default"
+) => {
+  const history = getOrCreateConversationHistory(conversationId);
+  history.length = 0; // Clear the array
+  return {
+    success: true,
+    message: `Conversation history cleared for ${conversationId}`,
+  };
 };
 
 // Enhanced function to determine chat mode based on message content

@@ -47,20 +47,24 @@ chatRouter.post("/chat", async (req: Request, res: Response) => {
       stream = await streamChatCompletion(message, conversationId);
     }
 
-    // Pipe the stream to the response
-    stream.on("data", (chunk: string) => {
-      res.write(chunk);
-      // Force flush to prevent buffering - Express doesn't have flush, but write should be immediate
-    });
+    // Handle the ReadableStream properly
+    const reader = stream.getReader();
 
-    stream.on("end", () => {
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        // Handle both string and Uint8Array chunks
+        const chunk =
+          typeof value === "string" ? value : new TextDecoder().decode(value);
+        res.write(chunk);
+      }
       res.end();
-    });
-
-    stream.on("error", (error: Error) => {
+    } catch (error) {
       console.error("Stream error:", error);
       res.status(500).end();
-    });
+    }
   } catch (error) {
     console.error("Chat endpoint error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -91,20 +95,24 @@ chatRouter.post("/agent", async (req: Request, res: Response) => {
     // Get streaming response from agent service with vector search
     const stream = await streamAgentResponse(message, conversationId);
 
-    // Pipe the stream to the response
-    stream.on("data", (chunk: string) => {
-      res.write(chunk);
-      // Force flush to prevent buffering - Express doesn't have flush, but write should be immediate
-    });
+    // Handle the ReadableStream properly
+    const reader = stream.getReader();
 
-    stream.on("end", () => {
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        // Handle both string and Uint8Array chunks
+        const chunk =
+          typeof value === "string" ? value : new TextDecoder().decode(value);
+        res.write(chunk);
+      }
       res.end();
-    });
-
-    stream.on("error", (error: Error) => {
+    } catch (error) {
       console.error("Agent stream error:", error);
       res.status(500).end();
-    });
+    }
   } catch (error) {
     console.error("Agent endpoint error:", error);
     res.status(500).json({ error: "Internal server error" });
