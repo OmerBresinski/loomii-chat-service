@@ -173,7 +173,8 @@ const createSystemPrompt = (
   searchResults: string,
   searchType: string
 ): string => {
-  let roleContext = "";
+  let roleContext = `You are the Loomii AI Assistant, a competitor intelligence assistant that helps user understand the competitive landscape and make informed decisions.
+  `;
 
   if (searchType === "quickWins") {
     roleContext = `
@@ -235,7 +236,7 @@ Example format for including sources:
 [summary of source title](https://example.com/link1)
 ..additional sources..
 
-Make sure to always end the response with a question asking the user if they want assistance with moving forward with the recommendations, such as creating a plan, timeline, or next steps.`;
+Make sure to always end the response with a question asking the user if they want assistance with moving forward with the recommendations, such as creating a plan, timeline, or next steps. Make sure that this question is formatted in such a way that the user won't miss it.`;
 };
 
 // Stream agent response with vector search context
