@@ -156,6 +156,136 @@ const generateAssistanceTool = tool(
   }
 );
 
+// Define tool for determining if response should be cards format
+const shouldUseCardsFormatTool = tool(
+  async ({ shouldUseCards, reasoning }) => {
+    console.log("🔧 CARDS FORMAT DECISION:", {
+      shouldUseCards,
+      reasoning,
+    });
+    return {
+      shouldUseCards,
+      reasoning,
+    };
+  },
+  {
+    name: "determine_response_format",
+    description:
+      "Determine if a user query should trigger the brief intro + interactive cards format instead of a regular text response. cards format is used for when the user is asking for specific recommendations, steps, or things to do",
+    schema: z.object({
+      shouldUseCards: z
+        .boolean()
+        .describe("Whether to use brief intro + cards format"),
+      reasoning: z.string().describe("Brief explanation of the decision"),
+    }),
+  }
+);
+
+// Create LLM with the cards format decision tool
+const createCardsDecisionLLM = () => {
+  const llm = new ChatOpenAI({
+    modelName: "gpt-4o-mini",
+    temperature: 0.1,
+    streaming: false,
+    openAIApiKey: process.env.OPENAI_API_KEY,
+  });
+
+  return llm.bindTools([shouldUseCardsFormatTool]);
+};
+
+// Helper function to determine if response should be cards format using LLM
+const shouldReplaceWithCards = async (message: string): Promise<boolean> => {
+  try {
+    console.log("🔍 Using LLM to determine response format for:", message);
+
+    const llmWithTool = createCardsDecisionLLM();
+
+    const decisionPrompt = `Analyze this user message and determine if it should trigger a "brief intro + interactive cards" response format instead of a regular text response.
+
+User message: "${message}"
+
+Use the brief intro + cards format when the user is asking for:
+- Quick wins, immediate actions, or things to implement today/soon
+- Step-by-step recommendations or actionable advice
+- Lists of actions, strategies, or tactics
+- Competitive analysis or how to respond to competitors
+- Strategic recommendations or suggestions
+- Things to do, action items, or to-do lists
+- How to improve, compete, or respond to market changes
+
+Use regular text format when the user is asking for:
+- General information or explanations
+- Definitions or concepts
+- Historical context or background
+- Simple questions that don't require actionable steps
+- Conversational queries that don't need structured responses
+
+Consider the context of cybersecurity market intelligence and competitive analysis.
+
+Use the determine_response_format tool to make your decision.`;
+
+    const response = await llmWithTool.invoke([
+      new HumanMessage(decisionPrompt),
+    ]);
+
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      const toolCall = response.tool_calls[0];
+      if (toolCall.name === "determine_response_format") {
+        const result = await shouldUseCardsFormatTool.invoke(
+          toolCall.args as any
+        );
+        console.log(
+          `🎯 LLM Decision: ${
+            result.shouldUseCards ? "CARDS FORMAT" : "TEXT FORMAT"
+          }`
+        );
+        console.log(`📝 Reasoning: ${result.reasoning}`);
+        return result.shouldUseCards;
+      }
+    }
+
+    // Fallback to false if no tool call
+    console.log("⚠️ No tool call received, defaulting to text format");
+    return false;
+  } catch (error) {
+    console.error("❌ Error in LLM cards decision:", error);
+    // Fallback to regex patterns if LLM fails
+    console.log("🔄 Falling back to regex patterns...");
+    return shouldReplaceWithCardsRegex(message);
+  }
+};
+
+// Backup regex-based function in case LLM fails
+const shouldReplaceWithCardsRegex = (message: string): boolean => {
+  console.log("🔍 Using regex fallback for message:", message);
+
+  const cardOnlyTriggers = [
+    /give me \d+ (steps?|things?|ways?|actions?)/i,
+    /\d+ (quick wins?|recommendations?|suggestions?)/i,
+    /list of (actions?|steps?|recommendations?)/i,
+    /what should (i|we) do/i,
+    /how (can|should) (i|we) (improve|compete|respond)/i,
+    /(action items?|to-?do list)/i,
+  ];
+
+  for (let i = 0; i < cardOnlyTriggers.length; i++) {
+    const pattern = cardOnlyTriggers[i];
+    const matches = pattern.test(message);
+    console.log(
+      `🔍 Pattern ${i + 1} (${pattern}): ${
+        matches ? "✅ MATCH" : "❌ no match"
+      }`
+    );
+    if (matches) {
+      console.log("🎴 Regex fallback: Message should trigger cards!");
+      return true;
+    }
+  }
+
+  console.log("📝 Regex fallback: Message will use regular response");
+  return false;
+};
+
 // Initialize OpenAI ChatGPT for the agent
 const createAgentLLM = (): ChatOpenAI => {
   return new ChatOpenAI({
@@ -428,37 +558,6 @@ export const streamAgentResponse = async (
   });
 
   return stream;
-};
-
-// Helper function to determine if response should be cards-only
-const shouldReplaceWithCards = async (message: string): Promise<boolean> => {
-  console.log("🔍 Checking if message should trigger cards:", message);
-
-  const cardOnlyTriggers = [
-    /give me \d+ (steps?|things?|ways?|actions?)/i,
-    /\d+ (quick wins?|recommendations?|suggestions?)/i,
-    /list of (actions?|steps?|recommendations?)/i,
-    /what should (i|we) do/i,
-    /how (can|should) (i|we) (improve|compete|respond)/i,
-    /(action items?|to-?do list)/i,
-  ];
-
-  for (let i = 0; i < cardOnlyTriggers.length; i++) {
-    const pattern = cardOnlyTriggers[i];
-    const matches = pattern.test(message);
-    console.log(
-      `🔍 Pattern ${i + 1} (${pattern}): ${
-        matches ? "✅ MATCH" : "❌ no match"
-      }`
-    );
-    if (matches) {
-      console.log("🎴 Message should trigger cards!");
-      return true;
-    }
-  }
-
-  console.log("📝 Message will use regular response");
-  return false;
 };
 
 // Helper function for brief intro + cards response in agent mode
