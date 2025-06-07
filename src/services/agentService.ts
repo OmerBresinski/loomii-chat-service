@@ -19,9 +19,108 @@ import {
 } from "./conversationHistory";
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
+import { TavilySearchResults } from "@langchain/community/tools/tavily_search";
 
 // Load environment variables
 dotenv.config();
+
+// Interface for web search results
+interface WebSearchResult {
+  title: string;
+  content: string;
+  url: string;
+  source: string;
+}
+
+// Web search tool using Tavily for browsing the internet
+const webSearchTool = tool(
+  async ({ query, maxResults = 5 }) => {
+    console.log("🌐 WEB SEARCH TOOL CALLED:", { query, maxResults });
+
+    try {
+      // Initialize Tavily search
+      const tavilySearch = new TavilySearchResults({
+        maxResults: maxResults,
+        apiKey: process.env.TAVILY_API_KEY,
+      });
+
+      // Perform the search
+      const searchResults = await tavilySearch.invoke(query);
+
+      // Parse the results (Tavily returns a string, we need to parse it)
+      let results: WebSearchResult[] = [];
+
+      try {
+        // Try to parse as JSON first
+        const parsedResults = JSON.parse(searchResults);
+        if (Array.isArray(parsedResults)) {
+          results = parsedResults.map((item: any) => ({
+            title: item.title || "Web Search Result",
+            content: item.content || item.snippet || "",
+            url: item.url || "",
+            source: "Tavily",
+          }));
+        }
+      } catch (parseError) {
+        // If parsing fails, treat as plain text and create a single result
+        results = [
+          {
+            title: "Web Search Results",
+            content: searchResults,
+            url: "",
+            source: "Tavily",
+          },
+        ];
+      }
+
+      // If no results, provide a fallback
+      if (results.length === 0) {
+        results.push({
+          title: "Web Search",
+          content: `I searched for "${query}" but couldn't retrieve specific web results at this time. However, I can help you with information from my knowledge base or suggest alternative approaches.`,
+          url: "",
+          source: "Assistant",
+        });
+      }
+
+      console.log(
+        `🌐 Tavily search completed: ${results.length} results found`
+      );
+      return {
+        query,
+        results: results.slice(0, maxResults),
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error("❌ Tavily search error:", error);
+      return {
+        query,
+        results: [
+          {
+            title: "Search Error",
+            content: `I encountered an issue while searching for "${query}". Please ensure the TAVILY_API_KEY is set in your environment variables. I can still help you with information from my knowledge base.`,
+            url: "",
+            source: "Assistant",
+          },
+        ] as WebSearchResult[],
+        timestamp: new Date().toISOString(),
+      };
+    }
+  },
+  {
+    name: "web_search",
+    description:
+      "Search the web for current information, news, trends, or any topic that requires up-to-date data from the internet using Tavily Search",
+    schema: z.object({
+      query: z.string().describe("The search query to look up on the web"),
+      maxResults: z
+        .number()
+        .optional()
+        .default(5)
+        .describe("Maximum number of search results to return (default: 5)"),
+    }),
+  }
+);
 
 // Define tools for the LLM to generate cards
 const generateActionListTool = tool(
@@ -288,10 +387,10 @@ const shouldReplaceWithCardsRegex = (message: string): boolean => {
   return false;
 };
 
-// Initialize OpenAI ChatGPT for the agent
+// Initialize OpenAI ChatGPT for the agent with web browsing capabilities
 const createAgentLLM = (): ChatOpenAI => {
   return new ChatOpenAI({
-    modelName: "gpt-4o-mini",
+    modelName: "gpt-4o", // Upgraded to GPT-4o for better web search integration
     temperature: 0.2,
     streaming: true,
     openAIApiKey: process.env.OPENAI_API_KEY,
@@ -484,7 +583,7 @@ You are analyzing VALUE-TO-EFFORT RATIOS - the most efficient actions for compet
 - Maximum impact per unit of effort`;
   }
 
-  return `You are an AI assistant specialized in market intelligence and competitive strategy. You have access to detailed insights about companies and market data.
+  return `You are an AI assistant specialized in market intelligence and competitive strategy. You have access to detailed insights about companies and market data, as well as web search capabilities for current information.
 
 ${roleContext}
 
@@ -494,6 +593,7 @@ Your role is to:
 3. Suggest actionable recommendations based on market intelligence
 4. Help users understand industry trends and opportunities
 5. Prioritize actions based on value, effort, and competitive impact
+6. **Use web search when users ask for current events, recent news, today's information, or anything requiring up-to-date data**
 
 Here are the relevant insights from the data based on the user's query:
 
@@ -501,6 +601,7 @@ ${searchResults}
 
 Instructions:
 - Use the provided insights to answer the user's question comprehensively
+- **When users ask for current events, recent news, or today's information, use the web_search tool to get up-to-date information**
 - When showing actions, always include value scores, effort scores, and value-to-effort ratios
 - Prioritize recommendations based on the search type (quick wins, high value, etc.)
 - Provide specific, actionable advice with clear implementation guidance
@@ -510,7 +611,7 @@ Instructions:
 - For competitive analysis, explain how each action helps versus competitors
 - **IMPORTANT: Do NOT include any sources or links in your response**
 
-Remember: You are an expert analyst helping with market intelligence and competitive analysis, with a focus on actionable, high-impact recommendations.
+Remember: You are an expert analyst helping with market intelligence and competitive analysis, with a focus on actionable, high-impact recommendations. Use web search for current information when needed.
 
 Make sure to always end the response with a question asking the user if they want assistance with moving forward with the recommendations, such as creating a plan, timeline, or next steps. Make sure that this question is formatted in such a way that the user won't miss it.`;
 };
@@ -735,46 +836,15 @@ const streamRegularAgentResponse = async (
   console.log("🔄 Initializing vector store with orionData...");
   await initializeVectorStore();
 
-  const llm = createAgentLLM();
-
   // Analyze the query to determine search strategy
   console.log(`🤖 Agent analyzing query: "${message}"`);
   const queryAnalysis = analyzeQuery(message);
   console.log(`🔍 Search strategy: ${queryAnalysis.searchType}`);
 
-  let searchResults: any[] = [];
-
-  // Execute search based on analysis
-  switch (queryAnalysis.searchType) {
-    case "quickWins":
-      searchResults = await getQuickWins(queryAnalysis.k || 5);
-      break;
-    case "highValue":
-      searchResults = await getHighValueActions(queryAnalysis.k || 5);
-      break;
-    case "valueEffort":
-      searchResults = await getActionsByValueEffortRatio(queryAnalysis.k || 5);
-      break;
-    case "company":
-      if (queryAnalysis.searchTerm) {
-        searchResults = await getInsightsByCompany(queryAnalysis.searchTerm);
-      }
-      break;
-    case "impact":
-      if (queryAnalysis.searchTerm) {
-        searchResults = await getInsightsByImpact(
-          queryAnalysis.searchTerm as "high" | "medium" | "low"
-        );
-      }
-      break;
-    case "similarity":
-    default:
-      searchResults = await performSimilaritySearch(
-        message,
-        queryAnalysis.k || 3
-      );
-      break;
-  }
+  const searchResults = await performSimilaritySearch(
+    message,
+    queryAnalysis.k || 3
+  );
 
   // Format search results for context
   const formattedResults = formatSearchResults(searchResults);
@@ -790,10 +860,100 @@ const streamRegularAgentResponse = async (
   const contextualHistory = [systemMessage, ...history, userMessage];
 
   console.log(`📊 Found ${searchResults.length} relevant insights`);
-  console.log(`🚀 Streaming agent response...`);
 
-  // Stream response from LLM with context
-  const streamResponse = await llm.stream(contextualHistory);
+  // First, check if we need to use web search by getting a non-streaming response
+  const llmWithWebSearch = createAgentLLMWithWebSearch();
+  console.log(`🌐 Checking if web search is needed...`);
+
+  try {
+    const initialResponse = await llmWithWebSearch.invoke(contextualHistory);
+
+    // Check if there are tool calls (web search)
+    if (initialResponse.tool_calls && initialResponse.tool_calls.length > 0) {
+      console.log(
+        `🔧 Processing ${initialResponse.tool_calls.length} tool calls...`
+      );
+
+      let webSearchResults = "";
+      for (const toolCall of initialResponse.tool_calls) {
+        if (toolCall.name === "web_search") {
+          console.log(
+            `🌐 Executing web search: ${JSON.stringify(toolCall.args)}`
+          );
+          const searchResult = await webSearchTool.invoke(toolCall.args as any);
+
+          if (searchResult && searchResult.results) {
+            webSearchResults += `\n\nWeb Search Results for "${searchResult.query}":\n`;
+            searchResult.results.forEach(
+              (result: WebSearchResult, index: number) => {
+                webSearchResults += `${index + 1}. ${result.title}\n${
+                  result.content
+                }\n\n`;
+              }
+            );
+          }
+        }
+      }
+
+      // If we got web search results, add them to the context and get a new response
+      if (webSearchResults) {
+        console.log(
+          `🌐 Web search completed, generating response with current information...`
+        );
+        const enhancedSystemPrompt = systemPrompt + webSearchResults;
+        const enhancedSystemMessage = new AIMessage(enhancedSystemPrompt);
+        const enhancedHistory = [
+          enhancedSystemMessage,
+          ...history,
+          userMessage,
+        ];
+
+        // Now stream the response with the enhanced context
+        const streamingLLM = createAgentLLM();
+        const streamResponse = await streamingLLM.stream(enhancedHistory);
+
+        let fullResponse = "";
+        for await (const chunk of streamResponse) {
+          const content = chunk.content;
+          if (content) {
+            const contentStr =
+              typeof content === "string" ? content : JSON.stringify(content);
+            fullResponse += contentStr;
+            controller.enqueue(contentStr);
+          }
+        }
+
+        // Add messages to history
+        history.push(userMessage);
+        const aiMessage = new AIMessage(fullResponse);
+        history.push(aiMessage);
+
+        if (conversationId) {
+          updateConversationHistory(conversationId, history);
+        }
+
+        // Generate supplementary cards
+        const metadata = await generateAgentCardsWithLLM(
+          message,
+          fullResponse,
+          searchResults
+        );
+        if (metadata) {
+          metadata.replaceText = false;
+          await streamMetadataInChunks(controller, metadata);
+        }
+
+        return;
+      }
+    }
+  } catch (error) {
+    console.error("❌ Error in web search check:", error);
+  }
+
+  // If no web search was needed or there was an error, proceed with regular response
+  console.log(`🚀 Streaming regular agent response...`);
+  const regularLLM = createAgentLLM();
+  const streamResponse = await regularLLM.stream(contextualHistory);
 
   let fullResponse = "";
 
@@ -939,18 +1099,31 @@ export const searchOrionData = async (
 // Create LLM with tools for card generation
 const createLLMWithTools = () => {
   const llm = new ChatOpenAI({
-    modelName: "gpt-4o-mini",
+    modelName: "gpt-4o", // Upgraded to GPT-4o for better tool usage and web search
     temperature: 0, // Set to 0 for consistent, data-driven responses
     streaming: false,
     openAIApiKey: process.env.OPENAI_API_KEY,
   });
 
   return llm.bindTools([
+    // webSearchTool removed from card generation - only used for regular text responses
     // generateActionListTool, // Disabled for now
     generateQuickWinsTool,
     // generateCompetitiveAnalysisTool,
     generateAssistanceTool,
   ]);
+};
+
+// Create LLM with web search for regular text responses
+const createAgentLLMWithWebSearch = () => {
+  const llm = new ChatOpenAI({
+    modelName: "gpt-4o",
+    temperature: 0.2,
+    streaming: true,
+    openAIApiKey: process.env.OPENAI_API_KEY,
+  });
+
+  return llm.bindTools([webSearchTool]);
 };
 
 // Generate cards using LLM with tools for agent responses
@@ -1010,21 +1183,29 @@ Only generate cards that add value to the conversation. If the response is just 
           switch (toolCall.name) {
             case "generate_quick_wins":
               result = await generateQuickWinsTool.invoke(toolCall.args as any);
+              if (result) {
+                cards.push(result);
+              }
               break;
             case "generate_competitive_analysis":
               result = await generateCompetitiveAnalysisTool.invoke(
                 toolCall.args as any
               );
+              if (result) {
+                cards.push(result);
+              }
               break;
             case "generate_assistance_suggestions":
               result = await generateAssistanceTool.invoke(
                 toolCall.args as any
               );
+              if (result) {
+                cards.push(result);
+              }
               break;
           }
           if (result) {
             console.log(`✅ AGENT Tool ${toolCall.name} executed successfully`);
-            cards.push(result);
           }
         } catch (error) {
           console.error(
