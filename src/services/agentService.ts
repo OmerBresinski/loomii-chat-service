@@ -392,41 +392,38 @@ export const streamAgentResponse = async (
 
   const stream = new ReadableStream({
     async start(controller) {
-      // Start streaming immediately in background
-      setImmediate(async () => {
-        try {
-          // Check if this should be a brief intro + cards response
-          const shouldUseCardsOnly = await shouldReplaceWithCards(message);
+      try {
+        // Check if this should be a brief intro + cards response
+        const shouldUseCardsOnly = await shouldReplaceWithCards(message);
 
-          if (shouldUseCardsOnly) {
-            console.log("🎴 Generating AGENT brief intro + cards response...");
+        if (shouldUseCardsOnly) {
+          console.log("🎴 Generating AGENT brief intro + cards response...");
 
-            // Use brief intro + cards approach
-            await streamAgentBriefIntroWithCards(
-              controller,
-              message,
-              history,
-              conversationId,
-              userMessage
-            );
-          } else {
-            // Regular agent response with optional cards
-            await streamRegularAgentResponse(
-              controller,
-              message,
-              history,
-              conversationId,
-              userMessage
-            );
-          }
-
-          console.log("🏁 Agent stream ending");
-          controller.close();
-        } catch (error) {
-          console.error("Error in agent streaming:", error);
-          controller.error(error);
+          // Use brief intro + cards approach
+          await streamAgentBriefIntroWithCards(
+            controller,
+            message,
+            history,
+            conversationId,
+            userMessage
+          );
+        } else {
+          // Regular agent response with optional cards
+          await streamRegularAgentResponse(
+            controller,
+            message,
+            history,
+            conversationId,
+            userMessage
+          );
         }
-      });
+
+        console.log("🏁 Agent stream ending");
+        controller.close();
+      } catch (error) {
+        console.error("Error in agent streaming:", error);
+        controller.error(error);
+      }
     },
   });
 
@@ -472,12 +469,61 @@ const streamAgentBriefIntroWithCards = async (
   conversationId: string,
   userMessage: HumanMessage
 ) => {
-  // Initialize vector store and get search results for context
+  // Create a streaming LLM for intro generation
+  const introLLM = new ChatOpenAI({
+    modelName: "gpt-4o-mini",
+    temperature: 0.3,
+    streaming: true,
+    openAIApiKey: process.env.OPENAI_API_KEY,
+  });
+
+  const introPrompt = `You are a cybersecurity market intelligence assistant. The user asked: "${message}"
+
+Generate a brief, natural introductory response (1-2 sentences) that:
+- Acknowledges their specific request in the context of cybersecurity market intelligence
+- Sets up the expectation that detailed market intelligence follows in interactive cards
+- Is conversational and professional, not robotic
+- Does NOT repeat information that will be in the cards themselves
+- Focuses on cybersecurity/competitive intelligence context
+
+Examples of good intros:
+- "Based on our cybersecurity market intelligence, here are some strategic quick wins you can implement:"
+- "I've analyzed the competitive landscape and identified several high-impact opportunities:"
+- "Drawing from our market data, here are actionable insights to strengthen your position:"
+- "Our intelligence shows several strategic moves that can enhance your cybersecurity posture:"
+
+Generate only the intro text, nothing else.`;
+
+  // Stream the intro text in real-time as the LLM generates it
+  console.log("🔧 Streaming intro text generation with LLM...");
+  const introStream = await introLLM.stream([new HumanMessage(introPrompt)]);
+
+  let introText = "";
+  for await (const chunk of introStream) {
+    if (chunk.content) {
+      const contentStr =
+        typeof chunk.content === "string"
+          ? chunk.content
+          : JSON.stringify(chunk.content);
+      introText += contentStr;
+      // Stream each chunk immediately as it's generated
+      controller.enqueue(contentStr);
+    }
+  }
+
+  // Add a newline after intro
+  controller.enqueue("\n\n");
+
+  // Initialize vector store and get search results for context in parallel
   console.log("🔄 Initializing vector store with orionData...");
-  await initializeVectorStore();
+  const initPromise = initializeVectorStore();
 
   // Analyze query and get search results for context
   const queryAnalysis = analyzeQuery(message);
+
+  // Wait for vector store to be ready
+  await initPromise;
+
   let searchResults: any[] = [];
 
   // Get relevant data based on query type
@@ -512,34 +558,30 @@ const streamAgentBriefIntroWithCards = async (
       break;
   }
 
-  // Let the LLM generate both intro text and cards dynamically with search context
-  const generatedResponse = await generateAgentDynamicResponseWithCards(
+  // Generate cards using LLM with tools
+  console.log("🎴 Generating cards with LLM...");
+  const generatedCards = await generateAgentCardsWithLLM(
     message,
-    "",
+    introText,
     searchResults
   );
 
   if (
-    generatedResponse &&
-    generatedResponse.introText &&
-    generatedResponse.cards &&
-    generatedResponse.cards.length > 0
+    generatedCards &&
+    generatedCards.cards &&
+    generatedCards.cards.length > 0
   ) {
-    // Stream the LLM-generated intro text immediately without artificial delays
-    const introText = generatedResponse.introText;
-    controller.enqueue(introText);
-
-    // Send the cards as the main content using immediate streaming
+    // Send the cards as metadata
     const metadata = {
       timestamp: new Date().toISOString(),
-      cards: generatedResponse.cards,
+      cards: generatedCards.cards,
       replaceText: false, // Cards supplement the intro
     };
 
-    // Add the intro + cards indication to history
+    // Add to history
     history.push(userMessage);
     const aiMessage = new AIMessage(
-      generatedResponse.introText +
+      introText +
         " [Interactive recommendations provided based on market intelligence]"
     );
     history.push(aiMessage);
@@ -548,16 +590,19 @@ const streamAgentBriefIntroWithCards = async (
     // Stream metadata immediately
     await streamMetadataInChunks(controller, metadata);
   } else {
-    // If no intro or cards generated, provide a simple fallback message
+    // If no cards generated, provide a simple fallback message
     const fallbackMessage =
-      "I understand your request. Let me provide some insights based on our market intelligence.";
+      " Let me provide some insights based on our market intelligence.";
 
-    // Stream fallback message immediately
-    controller.enqueue(fallbackMessage);
+    // Stream fallback message character by character
+    for (let i = 0; i < fallbackMessage.length; i++) {
+      controller.enqueue(fallbackMessage[i]);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
 
     // Add to history
     history.push(userMessage);
-    const aiMessage = new AIMessage(fallbackMessage);
+    const aiMessage = new AIMessage(introText + fallbackMessage);
     history.push(aiMessage);
     updateConversationHistory(conversationId, history);
   }

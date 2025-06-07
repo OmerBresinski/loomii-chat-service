@@ -253,39 +253,36 @@ const streamRegularChat = async (
   // Create a readable stream
   const stream = new ReadableStream({
     async start(controller) {
-      // Start streaming immediately in background
-      setImmediate(async () => {
-        try {
-          // First, check if this should be a brief intro + cards response
-          const shouldUseCardsOnly = await shouldReplaceWithCards(message);
+      try {
+        // First, check if this should be a brief intro + cards response
+        const shouldUseCardsOnly = await shouldReplaceWithCards(message);
 
-          if (shouldUseCardsOnly) {
-            console.log("🎴 Generating brief intro + cards response...");
+        if (shouldUseCardsOnly) {
+          console.log("🎴 Generating brief intro + cards response...");
 
-            // Use brief intro + cards approach
-            await streamBriefIntroWithCards(
-              controller,
-              message,
-              history,
-              conversationId
-            );
-          } else {
-            // Regular text response with optional cards
-            await streamRegularTextResponse(
-              controller,
-              message,
-              history,
-              conversationId
-            );
-          }
-
-          console.log("🏁 Regular chat stream ending");
-          controller.close();
-        } catch (error) {
-          console.error("Error in regular chat streaming:", error);
-          controller.error(error);
+          // Use brief intro + cards approach
+          await streamBriefIntroWithCards(
+            controller,
+            message,
+            history,
+            conversationId
+          );
+        } else {
+          // Regular text response with optional cards
+          await streamRegularTextResponse(
+            controller,
+            message,
+            history,
+            conversationId
+          );
         }
-      });
+
+        console.log("🏁 Regular chat stream ending");
+        controller.close();
+      } catch (error) {
+        console.error("Error in regular chat streaming:", error);
+        controller.error(error);
+      }
     },
   });
 
@@ -377,41 +374,72 @@ const streamBriefIntroWithCards = async (
   history: any[],
   conversationId: string
 ) => {
-  // Let the LLM generate both intro text and cards dynamically
+  // Create a streaming LLM for intro generation
+  const introLLM = new ChatOpenAI({
+    modelName: "gpt-4o-mini",
+    temperature: 0.3,
+    streaming: true,
+    openAIApiKey: process.env.OPENAI_API_KEY,
+  });
+
+  const introPrompt = `You are an expert business analyst and consultant. The user asked: "${message}"
+
+Generate a brief, natural introductory response (1-2 sentences) that:
+- Acknowledges their specific request
+- Sets up the expectation that detailed information follows in interactive cards
+- Is conversational and professional, not robotic
+- Does NOT repeat information that will be in the cards themselves
+- Be direct and practical
+
+Examples of good intros:
+- "I can help you with that! Here are some actionable recommendations:"
+- "Great question! Let me provide you with some strategic insights:"
+- "Absolutely! I've identified several opportunities for you:"
+
+Generate only the intro text, nothing else.`;
+
+  // Stream the intro text in real-time as the LLM generates it
+  console.log("🔧 Streaming intro text generation with LLM...");
+  const introStream = await introLLM.stream([new HumanMessage(introPrompt)]);
+
+  let introText = "";
+  for await (const chunk of introStream) {
+    if (chunk.content) {
+      const contentStr =
+        typeof chunk.content === "string"
+          ? chunk.content
+          : JSON.stringify(chunk.content);
+      introText += contentStr;
+      // Stream each chunk immediately as it's generated
+      controller.enqueue(contentStr);
+    }
+  }
+
+  // Generate cards using LLM with tools
   const generatedResponse = await generateDynamicResponseWithCards(message, "");
 
-  if (generatedResponse && generatedResponse.introText) {
-    // Stream the LLM-generated intro text immediately without artificial delays
-    const introText = generatedResponse.introText;
-    controller.enqueue(introText);
+  if (
+    generatedResponse &&
+    generatedResponse.cards &&
+    generatedResponse.cards.length > 0
+  ) {
+    // Send the cards as the main content using immediate streaming
+    const metadata = {
+      timestamp: new Date().toISOString(),
+      cards: generatedResponse.cards,
+      replaceText: false, // Cards supplement the intro
+    };
 
-    if (generatedResponse.cards && generatedResponse.cards.length > 0) {
-      // Send the cards as the main content using immediate streaming
-      const metadata = {
-        timestamp: new Date().toISOString(),
-        cards: generatedResponse.cards,
-        replaceText: false, // Cards supplement the intro
-      };
+    // Add the intro + cards indication to history
+    const aiMessage = new AIMessage(
+      introText + " [Interactive cards provided]"
+    );
+    history.push(aiMessage);
+    updateConversationHistory(conversationId, history);
 
-      // Add the intro + cards indication to history
-      const aiMessage = new AIMessage(
-        generatedResponse.introText + " [Interactive cards provided]"
-      );
-      history.push(aiMessage);
-      updateConversationHistory(conversationId, history);
-
-      await streamMetadataInChunks(controller, metadata);
-    } else {
-      // Fallback to regular response if no cards generated
-      await streamRegularTextResponse(
-        controller,
-        message,
-        history,
-        conversationId
-      );
-    }
+    await streamMetadataInChunks(controller, metadata);
   } else {
-    // Fallback to regular response if no intro generated
+    // Fallback to regular response if no cards generated
     await streamRegularTextResponse(
       controller,
       message,
