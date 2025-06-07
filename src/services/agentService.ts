@@ -305,16 +305,21 @@ const shouldReplaceWithCards = async (message: string): Promise<boolean> => {
 
 User message: "${message}"
 
+**IMPORTANT: If the user is asking for CURRENT, RECENT, or LATEST information (especially with words like "latest", "current", "recent", "today", "2024", "2025", "upcoming"), use REGULAR TEXT FORMAT so web search can be used.**
+
 Use the brief intro + cards format when the user is asking for:
-- Quick wins, immediate actions, or things to implement today/soon
-- Step-by-step recommendations or actionable advice
-- Lists of actions, strategies, or tactics
-- Competitive analysis or how to respond to competitors
-- Strategic recommendations or suggestions
-- Things to do, action items, or to-do lists
-- How to improve, compete, or respond to market changes
+- Quick wins, immediate actions, or things to implement today/soon (but NOT current news/events)
+- Step-by-step recommendations or actionable advice (but NOT current information)
+- Lists of actions, strategies, or tactics (but NOT recent developments)
+- Competitive analysis or how to respond to competitors (but NOT current market news)
+- Strategic recommendations or suggestions (but NOT latest trends)
+- Things to do, action items, or to-do lists (but NOT current events)
+- How to improve, compete, or respond to market changes (but NOT recent changes)
 
 Use regular text format when the user is asking for:
+- **Current, recent, latest, or upcoming information (PRIORITY)**
+- **News, events, or developments happening now or recently**
+- **Information about 2024, 2025, or "today"**
 - General information or explanations
 - Definitions or concepts
 - Historical context or background
@@ -583,7 +588,18 @@ You are analyzing VALUE-TO-EFFORT RATIOS - the most efficient actions for compet
 - Maximum impact per unit of effort`;
   }
 
-  return `You are an AI assistant specialized in market intelligence and competitive strategy. You have access to detailed insights about companies and market data, as well as web search capabilities for current information.
+  return `**🌐 CRITICAL WEB SEARCH REQUIREMENT 🌐**
+**YOU MUST USE THE WEB_SEARCH TOOL FOR ANY QUERY ABOUT:**
+- Current events, recent news, today's information
+- Upcoming conferences, events, product launches  
+- Recent company announcements or developments
+- Current market trends or statistics
+- Any information after April 2024
+- Questions with words: "recent", "latest", "current", "upcoming", "today", "this year", "2024", "2025"
+
+**IF YOU DON'T HAVE CURRENT INFORMATION, USE WEB_SEARCH - DO NOT MENTION KNOWLEDGE CUTOFFS**
+
+You are an AI assistant specialized in market intelligence and competitive strategy. You have access to detailed insights about companies and market data, as well as web search capabilities for current information.
 
 ${roleContext}
 
@@ -877,88 +893,71 @@ const streamRegularAgentResponse = async (
   console.log(`🌐 Checking if web search is needed...`);
 
   try {
-    const initialResponse = await llmWithWebSearch.invoke(contextualHistory);
+    // Use a shorter timeout and better error handling for the initial check
+    const checkResponse = await llmWithWebSearch.invoke(contextualHistory, {
+      timeout: 10000, // 10 second timeout
+    });
 
-    // Check if there are tool calls (web search)
-    if (initialResponse.tool_calls && initialResponse.tool_calls.length > 0) {
+    console.log(`🔍 Initial response check completed`);
+
+    // Check if the response contains tool calls
+    if (checkResponse.tool_calls && checkResponse.tool_calls.length > 0) {
       console.log(
-        `🔧 Processing ${initialResponse.tool_calls.length} tool calls...`
+        `🌐 Web search tool calls detected: ${checkResponse.tool_calls.length}`
+      );
+      console.log(
+        `🔧 Processing ${checkResponse.tool_calls.length} tool calls...`
       );
 
-      let webSearchResults = "";
-      for (const toolCall of initialResponse.tool_calls) {
+      // Process each tool call
+      for (const toolCall of checkResponse.tool_calls) {
         if (toolCall.name === "web_search") {
           console.log(
             `🌐 Executing web search: ${JSON.stringify(toolCall.args)}`
           );
-          const searchResult = await webSearchTool.invoke(toolCall.args as any);
 
-          if (searchResult && searchResult.results) {
-            webSearchResults += `\n\nWeb Search Results for "${searchResult.query}":\n`;
-            searchResult.results.forEach(
-              (result: WebSearchResult, index: number) => {
-                webSearchResults += `${index + 1}. ${result.title}\n${
-                  result.content
-                }\n\n`;
-              }
+          try {
+            const args = toolCall.args as {
+              query: string;
+              maxResults?: number;
+            };
+            const webSearchResult = await webSearchTool.func({
+              query: args.query,
+              maxResults: args.maxResults || 5,
+            });
+            console.log(
+              `🌐 Web search completed, generating response with current information...`
             );
+
+            // Add web search results to the context
+            const webSearchContext = `\n\nCURRENT WEB SEARCH RESULTS:\n${JSON.stringify(
+              webSearchResult,
+              null,
+              2
+            )}`;
+            const enhancedSystemPrompt = systemPrompt + webSearchContext;
+            const enhancedSystemMessage = new AIMessage(enhancedSystemPrompt);
+
+            // Update the contextual history with enhanced information
+            contextualHistory[0] = enhancedSystemMessage;
+            break; // Only process the first web search for now
+          } catch (webSearchError) {
+            console.error(`❌ Web search execution failed:`, webSearchError);
+            // Continue without web search results
           }
         }
       }
-
-      // If we got web search results, add them to the context and get a new response
-      if (webSearchResults) {
-        console.log(
-          `🌐 Web search completed, generating response with current information...`
-        );
-        const enhancedSystemPrompt = systemPrompt + webSearchResults;
-        const enhancedSystemMessage = new AIMessage(enhancedSystemPrompt);
-        const enhancedHistory = [
-          enhancedSystemMessage,
-          ...history,
-          userMessage,
-        ];
-
-        // Now stream the response with the enhanced context
-        const streamingLLM = createAgentLLM();
-        const streamResponse = await streamingLLM.stream(enhancedHistory);
-
-        let fullResponse = "";
-        for await (const chunk of streamResponse) {
-          const content = chunk.content;
-          if (content) {
-            const contentStr =
-              typeof content === "string" ? content : JSON.stringify(content);
-            fullResponse += contentStr;
-            controller.enqueue(contentStr);
-          }
-        }
-
-        // Add messages to history
-        history.push(userMessage);
-        const aiMessage = new AIMessage(fullResponse);
-        history.push(aiMessage);
-
-        if (conversationId) {
-          updateConversationHistory(conversationId, history);
-        }
-
-        // Generate supplementary cards
-        const metadata = await generateAgentCardsWithLLM(
-          message,
-          fullResponse,
-          searchResults
-        );
-        if (metadata) {
-          metadata.replaceText = false;
-          await streamMetadataInChunks(controller, metadata);
-        }
-
-        return;
-      }
+    } else {
+      console.log(
+        `📝 No web search needed, proceeding with vector search only`
+      );
     }
   } catch (error) {
-    console.error("❌ Error in web search check:", error);
+    console.error(
+      `⚠️ Error during web search check (continuing without web search):`,
+      error instanceof Error ? error.message : String(error)
+    );
+    // Continue with regular response even if web search check fails
   }
 
   // If no web search was needed or there was an error, proceed with regular response
