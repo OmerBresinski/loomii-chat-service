@@ -3,7 +3,6 @@ import {
   streamChatCompletion,
   getConversationHistory,
   streamChatWithAgent,
-  analyzeChatMode,
 } from "../services/chatService";
 import {
   streamAgentResponse,
@@ -114,31 +113,6 @@ chatRouter.post("/agent", async (req: Request, res: Response) => {
     }
   } catch (error) {
     console.error("Agent endpoint error:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// NEW: Analyze chat mode endpoint
-chatRouter.post("/analyze", async (req: Request, res: Response) => {
-  try {
-    const { message } = req.body;
-
-    if (!message) {
-      return res.status(400).json({ error: "Message is required" });
-    }
-
-    const analysis = analyzeChatMode(message);
-
-    res.json({
-      message,
-      analysis,
-      recommendation:
-        analysis.mode === "agent"
-          ? "This query would benefit from agent mode with vector search for cybersecurity market intelligence."
-          : "This query is suitable for regular chat mode.",
-    });
-  } catch (error) {
-    console.error("Analyze endpoint error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

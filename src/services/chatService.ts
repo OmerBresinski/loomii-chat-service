@@ -178,50 +178,164 @@ const createLLMWithTools = () => {
   ]);
 };
 
-// Detect if a query would benefit from agent/vector search
-const shouldUseAgent = (message: string): boolean => {
-  const lowerMessage = message.toLowerCase();
+// Helper function to determine if a message should trigger cards-only response
+const shouldReplaceWithCards = (message: string): boolean => {
+  console.log("🔍 Analyzing message for cards-only response:", message);
 
-  // Keywords that suggest cybersecurity market intelligence queries
-  const agentKeywords = [
-    // Company names
-    "zscaler",
-    "digital guardian",
-    "forcepoint",
-    // Market intelligence terms
-    "competitor",
-    "competitive",
-    "market",
-    "industry",
-    // Action-oriented terms
-    "quick win",
-    "high value",
-    "roi",
-    "return on investment",
-    "strategy",
-    "strategic",
-    "action",
-    "recommend",
-    // Cybersecurity terms
-    "security",
-    "compliance",
-    "dlp",
-    "zero trust",
-    "sse",
-    "threat",
-    "vulnerability",
-    "ai security",
-    "genai",
-    // Business terms
-    "value",
-    "effort",
-    "impact",
-    "advantage",
-    "opportunity",
+  // Keywords that suggest market intelligence queries
+  const cardOnlyTriggers = [
+    /give me \d+ (steps?|things?|ways?|actions?)/i,
+    /\d+ (quick wins?|recommendations?|suggestions?)/i,
+    /list of (actions?|steps?|recommendations?)/i,
+    /what should (i|we) do/i,
+    /how (can|should) (i|we) (improve|compete|respond)/i,
+    /(action items?|to-?do list)/i,
   ];
 
-  // Check if message contains any agent-relevant keywords
-  return agentKeywords.some((keyword) => lowerMessage.includes(keyword));
+  for (let i = 0; i < cardOnlyTriggers.length; i++) {
+    const pattern = cardOnlyTriggers[i];
+    const matches = pattern.test(message);
+    console.log(
+      `🔍 Pattern ${i + 1} (${pattern}): ${
+        matches ? "✅ MATCH" : "❌ no match"
+      }`
+    );
+    if (matches) {
+      console.log("🎴 Message should trigger cards!");
+      return true;
+    }
+  }
+
+  console.log("📝 Message will use regular response");
+  return false;
+};
+
+// Enhanced message analysis for agent mode detection
+const shouldUseAgentMode = (message: string): boolean => {
+  console.log("🤖 Analyzing message for agent mode:", message);
+
+  const lowerMessage = message.toLowerCase();
+
+  // High-priority triggers (strong indicators)
+  const highPriorityTriggers = [
+    "quick win",
+    "competitive",
+    "competitor",
+    "market intelligence",
+    "strategic",
+    "action plan",
+    "recommendations",
+  ];
+
+  // Company-specific terms - remove hardcoded companies
+  const companyTerms: string[] = [];
+
+  // Market intelligence terms
+  const marketTerms = [
+    "market",
+    "industry",
+    "trend",
+    "analysis",
+    "insight",
+    "intelligence",
+    "research",
+    "data",
+    "report",
+  ];
+
+  // Action-oriented terms
+  const actionTerms = [
+    "implement",
+    "execute",
+    "strategy",
+    "plan",
+    "approach",
+    "solution",
+    "optimize",
+    "improve",
+    "enhance",
+  ];
+
+  // Competitive terms
+  const competitiveTerms = [
+    "compete",
+    "advantage",
+    "positioning",
+    "differentiate",
+    "outperform",
+    "benchmark",
+    "compare",
+  ];
+
+  let score = 0;
+  const reasons: string[] = [];
+
+  // Check high-priority triggers (weight: 3)
+  for (const trigger of highPriorityTriggers) {
+    if (lowerMessage.includes(trigger)) {
+      score += 3;
+      reasons.push(`High-priority trigger: ${trigger}`);
+    }
+  }
+
+  // Check company terms (weight: 2)
+  for (const term of companyTerms) {
+    if (lowerMessage.includes(term)) {
+      score += 2;
+      reasons.push(`Company term: ${term}`);
+    }
+  }
+
+  // Check market terms (weight: 2)
+  for (const term of marketTerms) {
+    if (lowerMessage.includes(term)) {
+      score += 2;
+      reasons.push(`Market term: ${term}`);
+    }
+  }
+
+  // Check action terms (weight: 2)
+  for (const term of actionTerms) {
+    if (lowerMessage.includes(term)) {
+      score += 2;
+      reasons.push(`Action term: ${term}`);
+    }
+  }
+
+  // Check competitive terms (weight: 2)
+  for (const term of competitiveTerms) {
+    if (lowerMessage.includes(term)) {
+      score += 2;
+      reasons.push(`Competitive term: ${term}`);
+    }
+  }
+
+  // Domain-specific terms (low weight)
+  const domainTerms: string[] = [];
+  for (const term of domainTerms) {
+    if (lowerMessage.includes(term)) {
+      score += 1;
+      reasons.push(`Domain term: ${term}`);
+    }
+  }
+
+  const threshold = 3;
+  const shouldUseAgent = score >= threshold;
+
+  console.log(`🎯 Agent mode analysis:`);
+  console.log(`   Score: ${score}/${threshold}`);
+  console.log(`   Decision: ${shouldUseAgent ? "USE AGENT" : "USE REGULAR"}`);
+  console.log(`   Reasons: ${reasons.join(", ")}`);
+
+  return shouldUseAgent;
+};
+
+// Helper function to check if message is asking for company-specific information
+const isCompanyQuery = (message: string): boolean => {
+  const lowerMessage = message.toLowerCase();
+  const companies: string[] = []; // Remove hardcoded companies
+
+  return companies.some((company) => lowerMessage.includes(company));
 };
 
 // Enhanced stream chat completion with automatic agent integration
@@ -230,7 +344,7 @@ export const streamChatCompletion = async (
   conversationId: string = "default",
   forceAgent?: boolean
 ): Promise<ReadableStream> => {
-  const useAgent = forceAgent || shouldUseAgent(message);
+  const useAgent = forceAgent || shouldUseAgentMode(message);
 
   if (useAgent) {
     return streamChatWithAgent(message, conversationId);
@@ -287,20 +401,6 @@ const streamRegularChat = async (
   });
 
   return stream;
-};
-
-// Helper function to determine if response should be cards-only
-const shouldReplaceWithCards = async (message: string): Promise<boolean> => {
-  const cardOnlyTriggers = [
-    /give me \d+ (steps?|things?|ways?|actions?)/i,
-    /\d+ (quick wins?|recommendations?|suggestions?)/i,
-    /list of (actions?|steps?|recommendations?)/i,
-    /what should (i|we) do/i,
-    /how (can|should) (i|we) (improve|compete|respond)/i,
-    /(action items?|to-?do list)/i,
-  ];
-
-  return cardOnlyTriggers.some((pattern) => pattern.test(message));
 };
 
 // Helper function to stream metadata in chunks
@@ -559,97 +659,6 @@ export const clearConversationHistory = async (
     success: true,
     message: `Conversation history cleared for ${conversationId}`,
   };
-};
-
-// Enhanced function to determine chat mode based on message content
-export const analyzeChatMode = (
-  message: string
-): {
-  mode: "agent" | "regular";
-  confidence: number;
-  reasons: string[];
-} => {
-  const lowerMessage = message.toLowerCase();
-  const reasons: string[] = [];
-  let agentScore = 0;
-
-  // Company mentions (high weight)
-  const companies = ["zscaler", "digital guardian", "forcepoint"];
-  companies.forEach((company) => {
-    if (lowerMessage.includes(company)) {
-      agentScore += 3;
-      reasons.push(`Mentions ${company}`);
-    }
-  });
-
-  // Market intelligence terms (medium weight)
-  const marketTerms = [
-    "competitor",
-    "competitive",
-    "market",
-    "industry",
-    "strategy",
-    "strategic",
-  ];
-  marketTerms.forEach((term) => {
-    if (lowerMessage.includes(term)) {
-      agentScore += 2;
-      reasons.push(`Contains market intelligence term: ${term}`);
-    }
-  });
-
-  // Action-oriented terms (medium weight)
-  const actionTerms = [
-    "quick win",
-    "high value",
-    "roi",
-    "recommend",
-    "action",
-    "opportunity",
-  ];
-  actionTerms.forEach((term) => {
-    if (lowerMessage.includes(term)) {
-      agentScore += 2;
-      reasons.push(`Contains action-oriented term: ${term}`);
-    }
-  });
-
-  // Cybersecurity terms (low weight)
-  const securityTerms = [
-    "security",
-    "compliance",
-    "dlp",
-    "zero trust",
-    "threat",
-    "vulnerability",
-  ];
-  securityTerms.forEach((term) => {
-    if (lowerMessage.includes(term)) {
-      agentScore += 1;
-      reasons.push(`Contains cybersecurity term: ${term}`);
-    }
-  });
-
-  const confidence = Math.min(agentScore / 5, 1); // Normalize to 0-1
-  const mode = agentScore >= 2 ? "agent" : "regular";
-
-  return { mode, confidence, reasons };
-};
-
-// Example function showing how LangGraph could be integrated for complex workflows
-// This is a placeholder for future AI workflow implementation
-export const createLangGraphWorkflow = () => {
-  // LangGraph workflow example (not currently used but imported for future use)
-  // const workflow = new StateGraph({...});
-  // workflow.addNode("process", async (state) => {...});
-  // workflow.addEdge(START, "process");
-  // workflow.addEdge("process", END);
-  // return workflow.compile();
-
-  console.log(
-    "LangGraph libraries imported and ready for complex AI workflows"
-  );
-  return null;
 };
 
 // New function to generate dynamic response with cards using LLM

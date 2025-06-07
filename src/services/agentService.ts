@@ -220,7 +220,7 @@ Use regular text format when the user is asking for:
 - Simple questions that don't require actionable steps
 - Conversational queries that don't need structured responses
 
-Consider the context of cybersecurity market intelligence and competitive analysis.
+Consider the context of market intelligence and competitive analysis.
 
 Use the determine_response_format tool to make your decision.`;
 
@@ -410,8 +410,9 @@ const analyzeQuery = (
     return { searchType: "valueEffort", k: 5 };
   }
 
-  // Check for company-specific queries
-  const companies = ["digital guardian", "zscaler", "forcepoint"];
+  // Check for company-specific queries - dynamically extract company names from data
+  // This will be populated dynamically based on available data
+  const companies: string[] = []; // Remove hardcoded companies
   for (const company of companies) {
     if (lowerQuery.includes(company)) {
       return { searchType: "company", searchTerm: company };
@@ -455,7 +456,7 @@ const createSystemPrompt = (
   searchResults: string,
   searchType: string
 ): string => {
-  let roleContext = `You are the Loomii AI Assistant, a competitor intelligence assistant that helps user understand the competitive landscape and make informed decisions. If you're asked who you are, you're the Loomii AI Assistant.
+  let roleContext = `You are the Loomii AI Assistant, a market intelligence assistant that helps users understand the competitive landscape and make informed decisions. If you're asked who you are, you're the Loomii AI Assistant.
   `;
 
   if (searchType === "quickWins") {
@@ -481,18 +482,18 @@ You are analyzing VALUE-TO-EFFORT RATIOS - the most efficient actions for compet
 - Maximum impact per unit of effort`;
   }
 
-  return `You are an AI assistant specialized in cybersecurity market intelligence and competitive strategy. You have access to detailed insights about cybersecurity companies including Digital Guardian, Zscaler, and Forcepoint.
+  return `You are an AI assistant specialized in market intelligence and competitive strategy. You have access to detailed insights about companies and market data.
 
 ${roleContext}
 
 Your role is to:
-1. Analyze and interpret cybersecurity market data
+1. Analyze and interpret market data
 2. Provide strategic insights about competitor activities
 3. Suggest actionable recommendations based on market intelligence
 4. Help users understand industry trends and opportunities
 5. Prioritize actions based on value, effort, and competitive impact
 
-Here are the relevant insights from the orionData based on the user's query:
+Here are the relevant insights from the data based on the user's query:
 
 ${searchResults}
 
@@ -507,7 +508,7 @@ Instructions:
 - For competitive analysis, explain how each action helps versus competitors
 - **IMPORTANT: Do NOT include any sources or links in your response**
 
-Remember: You are an expert analyst helping with cybersecurity market intelligence and competitive analysis, with a focus on actionable, high-impact recommendations.
+Remember: You are an expert analyst helping with market intelligence and competitive analysis, with a focus on actionable, high-impact recommendations.
 
 Make sure to always end the response with a question asking the user if they want assistance with moving forward with the recommendations, such as creating a plan, timeline, or next steps. Make sure that this question is formatted in such a way that the user won't miss it.`;
 };
@@ -579,7 +580,7 @@ const streamAgentBriefIntroWithCards = async (
   const introPrompt = `You are a market intelligence assistant. The user asked: "${message}"
 
 Generate a brief, natural introductory response (1-2 sentences) that:
-- Acknowledges their specific request in the context of cybersecurity market intelligence
+- Acknowledges their specific request in the context of market intelligence
 - Sets up the expectation that detailed market intelligence follows in interactive cards
 - Is conversational and professional, not robotic
 - Does NOT repeat information that will be in the cards themselves
@@ -964,14 +965,14 @@ const generateAgentCardsWithLLM = async (
 
     const llmWithTools = createLLMWithTools();
 
-    const cardGenerationPrompt = `Based on this cybersecurity market intelligence conversation:
+    const cardGenerationPrompt = `Based on this market intelligence conversation:
 
 User: ${userMessage}
 Assistant: ${aiResponse}
 
 The assistant used vector search and found ${
       searchResults?.length || 0
-    } relevant insights from the cybersecurity market data.
+    } relevant insights from the market data.
 
 Analyze if this conversation would benefit from interactive cards. Use the available tools to generate appropriate cards when:
 
@@ -980,7 +981,7 @@ Analyze if this conversation would benefit from interactive cards. Use the avail
 3. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis
 4. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
 
-Focus on cybersecurity market intelligence context. Extract value/effort scores, competitive insights, and actionable recommendations from the response.`;
+Focus on market intelligence context. Extract value/effort scores, competitive insights, and actionable recommendations from the response.`;
 
     console.log("🔧 Invoking AGENT LLM with tools for card generation...");
     const response = await llmWithTools.invoke([
@@ -1063,20 +1064,20 @@ const generateBriefIntro = async (message: string): Promise<string> => {
       openAIApiKey: process.env.OPENAI_API_KEY,
     });
 
-    const introPrompt = `You are a cybersecurity market intelligence assistant. The user asked: "${message}"
+    const introPrompt = `You are a market intelligence assistant. The user asked: "${message}"
 
 Generate a brief, natural introductory response (1-2 sentences) that:
-- Acknowledges their specific request in the context of cybersecurity market intelligence
+- Acknowledges their specific request in the context of market intelligence
 - Sets up the expectation that detailed market intelligence follows in interactive cards
 - Is conversational and professional, not robotic
 - Does NOT repeat information that will be in the cards themselves
-- Focuses on cybersecurity/competitive intelligence context
+- Focuses on competitive intelligence context
 
 Examples of good intros:
-- "Based on our cybersecurity market intelligence, here are some strategic quick wins you can implement:"
-- "I've analyzed the competitive landscape and identified several high-impact opportunities:"
-- "Drawing from our market data, here are actionable insights to strengthen your position:"
-- "Our intelligence shows several strategic moves that can enhance your cybersecurity posture:"
+- "Based on our market intelligence, here are some strategic recommendations:"
+- "I've analyzed the competitive landscape and identified several opportunities:"
+- "Drawing from our market data, here are actionable insights:"
+- "Our intelligence shows several strategic moves that can enhance your position:"
 
 Generate only the intro text, nothing else.`;
 
@@ -1111,21 +1112,21 @@ const generateAgentDynamicResponseWithCards = async (
 
 I have access to ${
       searchResults?.length || 0
-    } relevant cybersecurity market intelligence insights from the vector database.
+    } relevant market intelligence insights from the vector database.
 
 Your task is to:
-1. Generate an appropriate brief introductory response (1-2 sentences) that acknowledges their request in the context of cybersecurity market intelligence
+1. Generate an appropriate brief introductory response (1-2 sentences) that acknowledges their request in the context of market intelligence
 2. Use the available tools to create interactive cards that provide detailed, data-driven answers
 
 Guidelines for the intro:
 - Be natural and conversational, not robotic
-- Acknowledge what they're asking for specifically in a cybersecurity/competitive intelligence context
+- Acknowledge what they're asking for specifically in a market intelligence context
 - Set up the expectation that detailed market intelligence follows in the cards
 - Don't repeat information that will be in the cards
 - Examples of good intros:
   * "Based on our market intelligence, here are some strategic recommendations:"
   * "I've analyzed the competitive landscape and identified several opportunities:"
-  * "Drawing from cybersecurity market data, here are actionable insights:"
+  * "Drawing from market data, here are actionable insights:"
 
 Use the tools to generate cards when:
 1. User asks for recommendations, steps, or actionable advice → use generate_action_list
@@ -1133,7 +1134,7 @@ Use the tools to generate cards when:
 3. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis
 4. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
 
-Focus on cybersecurity market intelligence context. Extract value/effort scores, competitive insights, and actionable recommendations.
+Focus on market intelligence context. Extract value/effort scores, competitive insights, and actionable recommendations.
 
 Generate a brief, natural intro and then use the appropriate tools to create detailed cards based on the market intelligence data.`;
 
