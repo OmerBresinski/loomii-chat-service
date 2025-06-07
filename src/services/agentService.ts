@@ -225,7 +225,7 @@ Instructions:
 - Be concise but thorough in your responses
 - If asked about companies not in the data, clearly state that information is not available
 - For competitive analysis, explain how each action helps versus competitors
-- **IMPORTANT: Always include the source links provided in the search results at the end of your response**
+- **IMPORTANT: Always include the source links at the end of your response**
 - Format source links exactly as shown in the search results using markdown link format
 
 Remember: You are an expert analyst helping with cybersecurity market intelligence and competitive analysis, with a focus on actionable, high-impact recommendations.
@@ -235,8 +235,8 @@ Important: Always provide the source links for the information in your response.
 Example format for including sources:
 
 ## Sources
-[summary of source title](https://example.com/link1)
-..additional sources..
+[Source 1](https://example.com/link1)
+[Source 2](https://example.com/link2)
 
 Make sure to always end the response with a question asking the user if they want assistance with moving forward with the recommendations, such as creating a plan, timeline, or next steps. Make sure that this question is formatted in such a way that the user won't miss it.`;
 };
@@ -247,123 +247,39 @@ export const streamAgentResponse = async (
   conversationId: string = "default"
 ): Promise<ReadableStream> => {
   const history = getOrCreateConversationHistory(conversationId);
-
-  // Add user message to history
   const userMessage = new HumanMessage(message);
-  history.push(userMessage);
 
-  // Create a readable stream
   const stream = new ReadableStream({
     async start(controller) {
       // Start streaming immediately in background
       setImmediate(async () => {
         try {
-          // Initialize vector store if needed
-          await initializeVectorStore();
+          // Check if this should be a brief intro + cards response
+          const shouldUseCardsOnly = await shouldReplaceWithCards(message);
 
-          const llm = createAgentLLM();
+          if (shouldUseCardsOnly) {
+            console.log("🎴 Generating AGENT brief intro + cards response...");
 
-          // Analyze query and perform appropriate search
-          const queryAnalysis = analyzeQuery(message);
-          let searchResults: Document[] = [];
-
-          console.log(`🤖 Agent analyzing query: "${message}"`);
-          console.log(`🔍 Search strategy: ${queryAnalysis.searchType}`);
-
-          switch (queryAnalysis.searchType) {
-            case "quickWins":
-              searchResults = await getQuickWins(queryAnalysis.k || 5);
-              break;
-            case "highValue":
-              searchResults = await getHighValueActions(queryAnalysis.k || 5);
-              break;
-            case "valueEffort":
-              searchResults = await getActionsByValueEffortRatio(
-                queryAnalysis.k || 5
-              );
-              break;
-            case "company":
-              if (queryAnalysis.searchTerm) {
-                searchResults = await getInsightsByCompany(
-                  queryAnalysis.searchTerm
-                );
-              }
-              break;
-            case "impact":
-              if (queryAnalysis.searchTerm) {
-                searchResults = await getInsightsByImpact(
-                  queryAnalysis.searchTerm as "high" | "medium" | "low"
-                );
-              }
-              break;
-            case "similarity":
-            default:
-              searchResults = await performSimilaritySearch(
-                message,
-                queryAnalysis.k || 3
-              );
-              break;
-          }
-
-          // Format search results for context
-          const formattedResults = formatSearchResults(searchResults);
-
-          // Create system message with search context
-          const systemPrompt = createSystemPrompt(
-            formattedResults,
-            queryAnalysis.searchType
-          );
-          const systemMessage = new AIMessage(systemPrompt);
-
-          // Create context-aware conversation
-          const contextualHistory = [systemMessage, ...history, userMessage];
-
-          console.log(`📊 Found ${searchResults.length} relevant insights`);
-          console.log(`🚀 Streaming agent response...`);
-
-          // Stream response from LLM with context
-          const streamResponse = await llm.stream(contextualHistory);
-
-          let fullResponse = "";
-
-          // Process the streaming response
-          for await (const chunk of streamResponse) {
-            const content = chunk.content;
-            if (content) {
-              const contentStr =
-                typeof content === "string" ? content : JSON.stringify(content);
-              fullResponse += contentStr;
-              controller.enqueue(contentStr);
-
-              // Small delay to ensure chunks are sent individually
-              await new Promise((resolve) => setTimeout(resolve, 10));
-            }
-          }
-
-          // Add messages to history (without system message)
-          history.push(userMessage);
-          const aiMessage = new AIMessage(fullResponse);
-          history.push(aiMessage);
-
-          // Update conversation history
-          if (conversationId) {
-            updateConversationHistory(conversationId, history);
-          }
-
-          // Send structured metadata at the end
-          const metadata = await generateAgentCardsWithLLM(
-            message,
-            fullResponse,
-            searchResults
-          );
-          if (metadata) {
-            controller.enqueue(
-              `\n\n__METADATA__${JSON.stringify(metadata)}__END_METADATA__`
+            // Use brief intro + cards approach
+            await streamAgentBriefIntroWithCards(
+              controller,
+              message,
+              history,
+              conversationId,
+              userMessage
+            );
+          } else {
+            // Regular agent response with optional cards
+            await streamRegularAgentResponse(
+              controller,
+              message,
+              history,
+              conversationId,
+              userMessage
             );
           }
 
           console.log("🏁 Agent stream ending");
-          // End the stream
           controller.close();
         } catch (error) {
           console.error("Error in agent streaming:", error);
@@ -374,6 +290,238 @@ export const streamAgentResponse = async (
   });
 
   return stream;
+};
+
+// Helper function to determine if response should be cards-only
+const shouldReplaceWithCards = async (message: string): Promise<boolean> => {
+  const cardOnlyTriggers = [
+    /give me \d+ (steps?|things?|ways?|actions?)/i,
+    /\d+ (quick wins?|recommendations?|suggestions?)/i,
+    /list of (actions?|steps?|recommendations?)/i,
+    /what should (i|we) do/i,
+    /how (can|should) (i|we) (improve|compete|respond)/i,
+    /(action items?|to-?do list)/i,
+  ];
+
+  return cardOnlyTriggers.some((pattern) => pattern.test(message));
+};
+
+// Helper function for brief intro + cards response in agent mode
+const streamAgentBriefIntroWithCards = async (
+  controller: ReadableStreamDefaultController,
+  message: string,
+  history: any[],
+  conversationId: string,
+  userMessage: HumanMessage
+) => {
+  // Initialize vector store and get search results for context
+  console.log("🔄 Initializing vector store with orionData...");
+  await initializeVectorStore();
+
+  // Analyze query and get search results for context
+  const queryAnalysis = analyzeQuery(message);
+  let searchResults: any[] = [];
+
+  // Get relevant data based on query type
+  switch (queryAnalysis.searchType) {
+    case "quickWins":
+      searchResults = await getQuickWins(queryAnalysis.k || 5);
+      break;
+    case "highValue":
+      searchResults = await getHighValueActions(queryAnalysis.k || 5);
+      break;
+    case "valueEffort":
+      searchResults = await getActionsByValueEffortRatio(queryAnalysis.k || 5);
+      break;
+    case "company":
+      if (queryAnalysis.searchTerm) {
+        searchResults = await getInsightsByCompany(queryAnalysis.searchTerm);
+      }
+      break;
+    case "impact":
+      if (queryAnalysis.searchTerm) {
+        searchResults = await getInsightsByImpact(
+          queryAnalysis.searchTerm as "high" | "medium" | "low"
+        );
+      }
+      break;
+    case "similarity":
+    default:
+      searchResults = await performSimilaritySearch(
+        message,
+        queryAnalysis.k || 3
+      );
+      break;
+  }
+
+  // Let the LLM generate both intro text and cards dynamically with search context
+  const generatedResponse = await generateAgentDynamicResponseWithCards(
+    message,
+    "",
+    searchResults
+  );
+
+  if (generatedResponse && generatedResponse.introText) {
+    // Stream the LLM-generated intro text
+    controller.enqueue(generatedResponse.introText);
+
+    // Small delay for natural feel
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    if (generatedResponse.cards && generatedResponse.cards.length > 0) {
+      // Send the cards as the main content
+      const metadata = {
+        timestamp: new Date().toISOString(),
+        cards: generatedResponse.cards,
+        replaceText: false, // Cards supplement the intro
+      };
+
+      // Add the intro + cards indication to history
+      history.push(userMessage);
+      const aiMessage = new AIMessage(
+        generatedResponse.introText +
+          " [Interactive recommendations provided based on market intelligence]"
+      );
+      history.push(aiMessage);
+      updateConversationHistory(conversationId, history);
+
+      controller.enqueue(
+        `\n\n__CARDS_REPLACE_CONTENT__${JSON.stringify(
+          metadata
+        )}__END_CARDS_REPLACE_CONTENT__`
+      );
+    } else {
+      // Fallback to regular agent response if no cards generated
+      await streamRegularAgentResponse(
+        controller,
+        message,
+        history,
+        conversationId,
+        userMessage
+      );
+    }
+  } else {
+    // Fallback to regular agent response if no intro generated
+    await streamRegularAgentResponse(
+      controller,
+      message,
+      history,
+      conversationId,
+      userMessage
+    );
+  }
+};
+
+// Helper function for regular agent streaming
+const streamRegularAgentResponse = async (
+  controller: ReadableStreamDefaultController,
+  message: string,
+  history: any[],
+  conversationId: string,
+  userMessage: HumanMessage
+) => {
+  // Initialize vector store if needed (handled internally by functions)
+  console.log("🔄 Initializing vector store with orionData...");
+  await initializeVectorStore();
+
+  const llm = createAgentLLM();
+
+  // Analyze the query to determine search strategy
+  console.log(`🤖 Agent analyzing query: "${message}"`);
+  const queryAnalysis = analyzeQuery(message);
+  console.log(`🔍 Search strategy: ${queryAnalysis.searchType}`);
+
+  let searchResults: any[] = [];
+
+  // Execute search based on analysis
+  switch (queryAnalysis.searchType) {
+    case "quickWins":
+      searchResults = await getQuickWins(queryAnalysis.k || 5);
+      break;
+    case "highValue":
+      searchResults = await getHighValueActions(queryAnalysis.k || 5);
+      break;
+    case "valueEffort":
+      searchResults = await getActionsByValueEffortRatio(queryAnalysis.k || 5);
+      break;
+    case "company":
+      if (queryAnalysis.searchTerm) {
+        searchResults = await getInsightsByCompany(queryAnalysis.searchTerm);
+      }
+      break;
+    case "impact":
+      if (queryAnalysis.searchTerm) {
+        searchResults = await getInsightsByImpact(
+          queryAnalysis.searchTerm as "high" | "medium" | "low"
+        );
+      }
+      break;
+    case "similarity":
+    default:
+      searchResults = await performSimilaritySearch(
+        message,
+        queryAnalysis.k || 3
+      );
+      break;
+  }
+
+  // Format search results for context
+  const formattedResults = formatSearchResults(searchResults);
+
+  // Create system message with search context
+  const systemPrompt = createSystemPrompt(
+    formattedResults,
+    queryAnalysis.searchType
+  );
+  const systemMessage = new AIMessage(systemPrompt);
+
+  // Create context-aware conversation
+  const contextualHistory = [systemMessage, ...history, userMessage];
+
+  console.log(`📊 Found ${searchResults.length} relevant insights`);
+  console.log(`🚀 Streaming agent response...`);
+
+  // Stream response from LLM with context
+  const streamResponse = await llm.stream(contextualHistory);
+
+  let fullResponse = "";
+
+  // Process the streaming response
+  for await (const chunk of streamResponse) {
+    const content = chunk.content;
+    if (content) {
+      const contentStr =
+        typeof content === "string" ? content : JSON.stringify(content);
+      fullResponse += contentStr;
+      controller.enqueue(contentStr);
+
+      // Small delay to ensure chunks are sent individually
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  }
+
+  // Add messages to history (without system message)
+  history.push(userMessage);
+  const aiMessage = new AIMessage(fullResponse);
+  history.push(aiMessage);
+
+  // Update conversation history
+  if (conversationId) {
+    updateConversationHistory(conversationId, history);
+  }
+
+  // Send structured metadata at the end (optional supplementary cards)
+  const metadata = await generateAgentCardsWithLLM(
+    message,
+    fullResponse,
+    searchResults
+  );
+  if (metadata) {
+    metadata.replaceText = false; // Flag to indicate cards supplement text
+    controller.enqueue(
+      `\n\n__METADATA__${JSON.stringify(metadata)}__END_METADATA__`
+    );
+  }
 };
 
 // Get agent conversation history
@@ -728,6 +876,121 @@ Focus on cybersecurity market intelligence context. Extract value/effort scores,
       : null;
   } catch (error) {
     console.error("❌ Error generating agent cards:", error);
+    return null;
+  }
+};
+
+// New function to generate dynamic response with cards using LLM for agent mode
+const generateAgentDynamicResponseWithCards = async (
+  userMessage: string,
+  aiResponse: string,
+  searchResults: any[]
+): Promise<{ introText: string; cards: any[] } | null> => {
+  try {
+    console.log("🎴 Starting AGENT dynamic response generation...");
+    console.log("📝 User message:", userMessage.substring(0, 100) + "...");
+    console.log("🔍 Search results count:", searchResults?.length || 0);
+
+    const llmWithTools = createLLMWithTools();
+
+    const dynamicPrompt = `The user asked: "${userMessage}"
+
+I have access to ${
+      searchResults?.length || 0
+    } relevant cybersecurity market intelligence insights from the vector database.
+
+Your task is to:
+1. Generate an appropriate brief introductory response (1-2 sentences) that acknowledges their request in the context of cybersecurity market intelligence
+2. Use the available tools to create interactive cards that provide detailed, data-driven answers
+
+Guidelines for the intro:
+- Be natural and conversational, not robotic
+- Acknowledge what they're asking for specifically in a cybersecurity/competitive intelligence context
+- Set up the expectation that detailed market intelligence follows in the cards
+- Don't repeat information that will be in the cards
+- Examples of good intros:
+  * "Based on our market intelligence, here are some strategic recommendations:"
+  * "I've analyzed the competitive landscape and identified several opportunities:"
+  * "Drawing from cybersecurity market data, here are actionable insights:"
+
+Use the tools to generate cards when:
+1. User asks for recommendations, steps, or actionable advice → use generate_action_list
+2. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins  
+3. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis
+4. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
+
+Focus on cybersecurity market intelligence context. Extract value/effort scores, competitive insights, and actionable recommendations.
+
+Generate a brief, natural intro and then use the appropriate tools to create detailed cards based on the market intelligence data.`;
+
+    console.log("🔧 Invoking AGENT LLM for dynamic response generation...");
+    const response = await llmWithTools.invoke([
+      new HumanMessage(dynamicPrompt),
+    ]);
+
+    // Extract intro text from the response
+    const introText = response.content?.toString() || "";
+
+    console.log(
+      "📊 AGENT dynamic response received. Tool calls:",
+      response.tool_calls?.length || 0
+    );
+    console.log(
+      "📝 Generated intro text:",
+      introText.substring(0, 100) + "..."
+    );
+
+    const cards: any[] = [];
+
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      console.log("🛠️ Processing AGENT tool calls...");
+      for (const toolCall of response.tool_calls) {
+        console.log(`🔧 Processing AGENT tool: ${toolCall.name}`);
+        try {
+          let result;
+          switch (toolCall.name) {
+            case "generate_action_list":
+              result = await generateActionListTool.invoke(
+                toolCall.args as any
+              );
+              break;
+            case "generate_quick_wins":
+              result = await generateQuickWinsTool.invoke(toolCall.args as any);
+              break;
+            case "generate_competitive_analysis":
+              result = await generateCompetitiveAnalysisTool.invoke(
+                toolCall.args as any
+              );
+              break;
+            case "generate_assistance_suggestions":
+              result = await generateAssistanceTool.invoke(
+                toolCall.args as any
+              );
+              break;
+          }
+          if (result) {
+            console.log(`✅ AGENT Tool ${toolCall.name} executed successfully`);
+            cards.push(result);
+          }
+        } catch (error) {
+          console.error(
+            `❌ Error executing AGENT tool ${toolCall.name}:`,
+            error
+          );
+        }
+      }
+    }
+
+    console.log(
+      `🎴 AGENT Dynamic response complete. Generated ${cards.length} cards`
+    );
+
+    return {
+      introText: introText.trim(),
+      cards,
+    };
+  } catch (error) {
+    console.error("❌ Error generating agent dynamic response:", error);
     return null;
   }
 };

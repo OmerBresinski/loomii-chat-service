@@ -255,52 +255,33 @@ const streamRegularChat = async (
       // Start streaming immediately in background
       setImmediate(async () => {
         try {
-          let fullResponse = "";
+          // First, check if this should be a brief intro + cards response
+          const shouldUseCardsOnly = await shouldReplaceWithCards(message);
 
-          // Initialize regular LLM for streaming
-          const llm = createLLM();
+          if (shouldUseCardsOnly) {
+            console.log("🎴 Generating brief intro + cards response...");
 
-          // Get streaming response from LLM
-          const llmStream = await llm.stream([...history]);
-
-          // Process the stream
-          for await (const chunk of llmStream) {
-            if (chunk.content) {
-              const contentStr =
-                typeof chunk.content === "string"
-                  ? chunk.content
-                  : JSON.stringify(chunk.content);
-              fullResponse += contentStr;
-              controller.enqueue(contentStr);
-              await new Promise((resolve) => setTimeout(resolve, 10));
-            }
-          }
-
-          // Add AI response to conversation history
-          const aiMessage = new AIMessage(fullResponse);
-          history.push(aiMessage);
-          updateConversationHistory(conversationId, history);
-
-          // Generate cards using LLM with tools
-          const generatedCards = await generateCardsWithLLM(
-            message,
-            fullResponse
-          );
-
-          // Send generated cards as metadata
-          if (generatedCards.length > 0) {
-            const metadata = {
-              timestamp: new Date().toISOString(),
-              cards: generatedCards,
-            };
-            controller.enqueue(
-              `\n\n__METADATA__${JSON.stringify(metadata)}__END_METADATA__`
+            // Use brief intro + cards approach
+            await streamBriefIntroWithCards(
+              controller,
+              message,
+              history,
+              conversationId
+            );
+          } else {
+            // Regular text response with optional cards
+            await streamRegularTextResponse(
+              controller,
+              message,
+              history,
+              conversationId
             );
           }
 
+          console.log("🏁 Regular chat stream ending");
           controller.close();
         } catch (error) {
-          console.error("Error in streaming:", error);
+          console.error("Error in regular chat streaming:", error);
           controller.error(error);
         }
       });
@@ -308,6 +289,126 @@ const streamRegularChat = async (
   });
 
   return stream;
+};
+
+// Helper function to determine if response should be cards-only
+const shouldReplaceWithCards = async (message: string): Promise<boolean> => {
+  const cardOnlyTriggers = [
+    /give me \d+ (steps?|things?|ways?|actions?)/i,
+    /\d+ (quick wins?|recommendations?|suggestions?)/i,
+    /list of (actions?|steps?|recommendations?)/i,
+    /what should (i|we) do/i,
+    /how (can|should) (i|we) (improve|compete|respond)/i,
+    /(action items?|to-?do list)/i,
+  ];
+
+  return cardOnlyTriggers.some((pattern) => pattern.test(message));
+};
+
+// Helper function for regular text streaming
+const streamRegularTextResponse = async (
+  controller: ReadableStreamDefaultController,
+  message: string,
+  history: any[],
+  conversationId: string
+) => {
+  let fullResponse = "";
+
+  // Initialize regular LLM for streaming
+  const llm = createLLM();
+
+  // Get streaming response from LLM
+  const llmStream = await llm.stream([...history]);
+
+  // Process the stream
+  for await (const chunk of llmStream) {
+    if (chunk.content) {
+      const contentStr =
+        typeof chunk.content === "string"
+          ? chunk.content
+          : JSON.stringify(chunk.content);
+      fullResponse += contentStr;
+      controller.enqueue(contentStr);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  }
+
+  // Add AI response to conversation history
+  const aiMessage = new AIMessage(fullResponse);
+  history.push(aiMessage);
+  updateConversationHistory(conversationId, history);
+
+  // Generate cards using LLM with tools (optional supplementary cards)
+  const generatedCards = await generateCardsWithLLM(message, fullResponse);
+
+  // Send generated cards as metadata only if they add value
+  if (generatedCards.length > 0) {
+    const metadata = {
+      timestamp: new Date().toISOString(),
+      cards: generatedCards,
+      replaceText: false, // Flag to indicate cards supplement text
+    };
+    controller.enqueue(
+      `\n\n__METADATA__${JSON.stringify(metadata)}__END_METADATA__`
+    );
+  }
+};
+
+// Helper function for brief intro + cards response
+const streamBriefIntroWithCards = async (
+  controller: ReadableStreamDefaultController,
+  message: string,
+  history: any[],
+  conversationId: string
+) => {
+  // Let the LLM generate both intro text and cards dynamically
+  const generatedResponse = await generateDynamicResponseWithCards(message, "");
+
+  if (generatedResponse && generatedResponse.introText) {
+    // Stream the LLM-generated intro text
+    controller.enqueue(generatedResponse.introText);
+
+    // Small delay for natural feel
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    if (generatedResponse.cards && generatedResponse.cards.length > 0) {
+      // Send the cards as the main content
+      const metadata = {
+        timestamp: new Date().toISOString(),
+        cards: generatedResponse.cards,
+        replaceText: false, // Cards supplement the intro
+      };
+
+      // Add the intro + cards indication to history
+      const aiMessage = new AIMessage(
+        generatedResponse.introText + " [Interactive cards provided]"
+      );
+      history.push(aiMessage);
+      updateConversationHistory(conversationId, history);
+
+      controller.enqueue(
+        `\n\n__CARDS_REPLACE_CONTENT__${JSON.stringify(
+          metadata
+        )}__END_CARDS_REPLACE_CONTENT__`
+      );
+    } else {
+      // Fallback to regular response if no cards generated
+      await streamRegularTextResponse(
+        controller,
+        message,
+        history,
+        conversationId
+      );
+    }
+  } else {
+    // Fallback to regular response if no intro generated
+    await streamRegularTextResponse(
+      controller,
+      message,
+      history,
+      conversationId
+    );
+  }
 };
 
 // Generate cards using LLM with tools
@@ -511,4 +612,108 @@ export const createLangGraphWorkflow = () => {
     "LangGraph libraries imported and ready for complex AI workflows"
   );
   return null;
+};
+
+// New function to generate dynamic response with cards using LLM
+const generateDynamicResponseWithCards = async (
+  userMessage: string,
+  aiResponse: string
+): Promise<{ introText: string; cards: any[] } | null> => {
+  try {
+    console.log("🎴 Starting dynamic response generation...");
+    console.log("📝 User message:", userMessage.substring(0, 100) + "...");
+
+    const llmWithTools = createLLMWithTools();
+
+    const dynamicPrompt = `The user asked: "${userMessage}"
+
+Your task is to:
+1. Generate an appropriate brief introductory response (1-2 sentences) that acknowledges their request
+2. Use the available tools to create interactive cards that provide the detailed answer
+
+Guidelines for the intro:
+- Be natural and conversational, not robotic
+- Acknowledge what they're asking for specifically
+- Set up the expectation that detailed information follows in the cards
+- Don't repeat information that will be in the cards
+- Examples of good intros:
+  * "I can help you with that! Here are some actionable recommendations:"
+  * "Great question! Let me provide you with some strategic insights:"
+  * "Absolutely! I've identified several opportunities for you:"
+
+Use the tools to generate cards when:
+1. User asks for recommendations, steps, or actionable advice → use generate_action_list
+2. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins  
+3. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis
+4. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
+
+Generate a brief, natural intro and then use the appropriate tools to create detailed cards.`;
+
+    console.log("🔧 Invoking LLM for dynamic response generation...");
+    const response = await llmWithTools.invoke([
+      new HumanMessage(dynamicPrompt),
+    ]);
+
+    // Extract intro text from the response
+    const introText = response.content?.toString() || "";
+
+    console.log(
+      "📊 Dynamic response received. Tool calls:",
+      response.tool_calls?.length || 0
+    );
+    console.log(
+      "📝 Generated intro text:",
+      introText.substring(0, 100) + "..."
+    );
+
+    const cards: any[] = [];
+
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      console.log("🛠️ Processing tool calls...");
+      for (const toolCall of response.tool_calls) {
+        console.log(`🔧 Processing tool: ${toolCall.name}`);
+        try {
+          let result;
+          switch (toolCall.name) {
+            case "generate_action_list":
+              result = await generateActionListTool.invoke(
+                toolCall.args as any
+              );
+              break;
+            case "generate_quick_wins":
+              result = await generateQuickWinsTool.invoke(toolCall.args as any);
+              break;
+            case "generate_competitive_analysis":
+              result = await generateCompetitiveAnalysisTool.invoke(
+                toolCall.args as any
+              );
+              break;
+            case "generate_assistance_suggestions":
+              result = await generateAssistanceTool.invoke(
+                toolCall.args as any
+              );
+              break;
+          }
+          if (result) {
+            console.log(`✅ Tool ${toolCall.name} executed successfully`);
+            cards.push(result);
+          }
+        } catch (error) {
+          console.error(`❌ Error executing tool ${toolCall.name}:`, error);
+        }
+      }
+    }
+
+    console.log(
+      `🎴 Dynamic response complete. Generated ${cards.length} cards`
+    );
+
+    return {
+      introText: introText.trim(),
+      cards,
+    };
+  } catch (error) {
+    console.error("❌ Error generating dynamic response:", error);
+    return null;
+  }
 };
