@@ -426,6 +426,8 @@ export const streamAgentResponse = async (
 
 // Helper function to determine if response should be cards-only
 const shouldReplaceWithCards = async (message: string): Promise<boolean> => {
+  console.log("🔍 Checking if message should trigger cards:", message);
+
   const cardOnlyTriggers = [
     /give me \d+ (steps?|things?|ways?|actions?)/i,
     /\d+ (quick wins?|recommendations?|suggestions?)/i,
@@ -435,7 +437,22 @@ const shouldReplaceWithCards = async (message: string): Promise<boolean> => {
     /(action items?|to-?do list)/i,
   ];
 
-  return cardOnlyTriggers.some((pattern) => pattern.test(message));
+  for (let i = 0; i < cardOnlyTriggers.length; i++) {
+    const pattern = cardOnlyTriggers[i];
+    const matches = pattern.test(message);
+    console.log(
+      `🔍 Pattern ${i + 1} (${pattern}): ${
+        matches ? "✅ MATCH" : "❌ no match"
+      }`
+    );
+    if (matches) {
+      console.log("🎴 Message should trigger cards!");
+      return true;
+    }
+  }
+
+  console.log("📝 Message will use regular response");
+  return false;
 };
 
 // Helper function for brief intro + cards response in agent mode
@@ -875,6 +892,49 @@ Focus on cybersecurity market intelligence context. Extract value/effort scores,
   }
 };
 
+// Helper function to generate brief intro text based on user message using LLM
+const generateBriefIntro = async (message: string): Promise<string> => {
+  try {
+    console.log("🔧 Generating dynamic intro text with LLM...");
+
+    const llm = new ChatOpenAI({
+      modelName: "gpt-4.1-mini",
+      temperature: 0.3,
+      streaming: false,
+      openAIApiKey: process.env.OPENAI_API_KEY,
+    });
+
+    const introPrompt = `You are a cybersecurity market intelligence assistant. The user asked: "${message}"
+
+Generate a brief, natural introductory response (1-2 sentences) that:
+- Acknowledges their specific request in the context of cybersecurity market intelligence
+- Sets up the expectation that detailed market intelligence follows in interactive cards
+- Is conversational and professional, not robotic
+- Does NOT repeat information that will be in the cards themselves
+- Focuses on cybersecurity/competitive intelligence context
+
+Examples of good intros:
+- "Based on our cybersecurity market intelligence, here are some strategic quick wins you can implement:"
+- "I've analyzed the competitive landscape and identified several high-impact opportunities:"
+- "Drawing from our market data, here are actionable insights to strengthen your position:"
+- "Our intelligence shows several strategic moves that can enhance your cybersecurity posture:"
+
+Generate only the intro text, nothing else.`;
+
+    const response = await llm.invoke([new HumanMessage(introPrompt)]);
+    const introText =
+      response.content?.toString() ||
+      "Based on our market intelligence, here are some strategic insights:";
+
+    console.log("📝 LLM-generated intro text:", introText);
+    return introText;
+  } catch (error) {
+    console.error("❌ Error generating intro text with LLM:", error);
+    // Fallback to a generic intro if LLM fails
+    return "Based on our market intelligence, here are some strategic insights:";
+  }
+};
+
 // New function to generate dynamic response with cards using LLM for agent mode
 const generateAgentDynamicResponseWithCards = async (
   userMessage: string,
@@ -929,7 +989,7 @@ Generate a brief, natural intro and then use the appropriate tools to create det
     ]);
 
     // Extract intro text from the response
-    const introText = response.content?.toString() || "";
+    let introText = response.content?.toString() || "";
 
     console.log(
       "📊 AGENT dynamic response received. Tool calls:",
@@ -992,6 +1052,13 @@ Generate a brief, natural intro and then use the appropriate tools to create det
       console.log("  - The LLM didn't understand the prompt");
       console.log("  - The tools aren't properly bound");
       console.log("  - The response format is unexpected");
+    }
+
+    // If no intro text was generated but we have cards, generate a fallback intro
+    if (!introText.trim() && cards.length > 0) {
+      console.log("🔧 No intro text generated, creating fallback intro...");
+      introText = await generateBriefIntro(userMessage);
+      console.log("📝 Fallback intro text:", introText);
     }
 
     console.log(
