@@ -569,10 +569,10 @@ const streamAgentBriefIntroWithCards = async (
   conversationId: string,
   userMessage: HumanMessage
 ) => {
-  // Create a streaming LLM for intro generation
+  // Create a streaming LLM for intro generation with temperature 0
   const introLLM = new ChatOpenAI({
     modelName: "gpt-4o-mini",
-    temperature: 0.3,
+    temperature: 0, // Set to 0 for consistent responses
     streaming: true,
     openAIApiKey: process.env.OPENAI_API_KEY,
   });
@@ -662,7 +662,7 @@ Generate only the intro text, nothing else.`;
       break;
   }
 
-  // Generate cards using LLM with tools
+  // Generate cards using LLM with tools - ensuring data-driven responses
   console.log("🎴 Generating cards with LLM...");
   const generatedCards = await generateAgentCardsWithLLM(
     message,
@@ -938,7 +938,7 @@ export const searchOrionData = async (
 const createLLMWithTools = () => {
   const llm = new ChatOpenAI({
     modelName: "gpt-4o-mini",
-    temperature: 0.2,
+    temperature: 0, // Set to 0 for consistent, data-driven responses
     streaming: false,
     openAIApiKey: process.env.OPENAI_API_KEY,
   });
@@ -965,23 +965,38 @@ const generateAgentCardsWithLLM = async (
 
     const llmWithTools = createLLMWithTools();
 
-    const cardGenerationPrompt = `Based on this market intelligence conversation:
+    // Format search results for the prompt to ensure data-driven responses
+    const formattedSearchResults = formatSearchResults(searchResults);
+
+    const cardGenerationPrompt = `Based on this market intelligence conversation and the provided data:
 
 User: ${userMessage}
 Assistant: ${aiResponse}
+
+IMPORTANT: Use ONLY the data provided below from the vector store. Do not generate any information that is not explicitly present in this data.
+
+Vector Store Data:
+${formattedSearchResults}
 
 The assistant used vector search and found ${
       searchResults?.length || 0
     } relevant insights from the market data.
 
-Analyze if this conversation would benefit from interactive cards. Use the available tools to generate appropriate cards when:
+Generate interactive cards based STRICTLY on the provided vector store data. Use the available tools to generate appropriate cards when:
 
-1. User asks for recommendations, steps, or actionable advice → use generate_action_list
-2. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins  
-3. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis
+1. User asks for recommendations, steps, or actionable advice → use generate_action_list (extract from the data above)
+2. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins (use ONLY the actions from the data above with their exact value/effort scores)
+3. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis (extract from the data above)
 4. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
 
-Focus on market intelligence context. Extract value/effort scores, competitive insights, and actionable recommendations from the response.`;
+CRITICAL REQUIREMENTS:
+- For quick wins: Use ONLY the actions present in the vector store data above
+- Include the EXACT value scores, effort scores, and ratios from the data
+- Do NOT create new actions or modify the scores
+- Extract company names, action descriptions, and metrics directly from the provided data
+- If no relevant data is found, do not generate cards for that category
+
+Focus on market intelligence context. Extract value/effort scores, competitive insights, and actionable recommendations ONLY from the provided vector store data.`;
 
     console.log("🔧 Invoking AGENT LLM with tools for card generation...");
     const response = await llmWithTools.invoke([
@@ -1059,7 +1074,7 @@ const generateBriefIntro = async (message: string): Promise<string> => {
 
     const llm = new ChatOpenAI({
       modelName: "gpt-4o-mini",
-      temperature: 0.3,
+      temperature: 0, // Set to 0 for consistent responses
       streaming: false,
       openAIApiKey: process.env.OPENAI_API_KEY,
     });
@@ -1108,15 +1123,23 @@ const generateAgentDynamicResponseWithCards = async (
 
     const llmWithTools = createLLMWithTools();
 
+    // Format search results for the prompt
+    const formattedSearchResults = formatSearchResults(searchResults);
+
     const dynamicPrompt = `The user asked: "${userMessage}"
 
 I have access to ${
       searchResults?.length || 0
     } relevant market intelligence insights from the vector database.
 
+IMPORTANT: Use ONLY the data provided below from the vector store. Do not generate any information that is not explicitly present in this data.
+
+Vector Store Data:
+${formattedSearchResults}
+
 Your task is to:
 1. Generate an appropriate brief introductory response (1-2 sentences) that acknowledges their request in the context of market intelligence
-2. Use the available tools to create interactive cards that provide detailed, data-driven answers
+2. Use the available tools to create interactive cards that provide detailed, data-driven answers based STRICTLY on the provided vector store data
 
 Guidelines for the intro:
 - Be natural and conversational, not robotic
@@ -1129,14 +1152,19 @@ Guidelines for the intro:
   * "Drawing from market data, here are actionable insights:"
 
 Use the tools to generate cards when:
-1. User asks for recommendations, steps, or actionable advice → use generate_action_list
-2. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins  
-3. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis
+1. User asks for recommendations, steps, or actionable advice → use generate_action_list (extract from the data above)
+2. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins (use ONLY the actions from the data above with their exact value/effort scores)
+3. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis (extract from the data above)
 4. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
 
-Focus on market intelligence context. Extract value/effort scores, competitive insights, and actionable recommendations.
+CRITICAL REQUIREMENTS:
+- For quick wins: Use ONLY the actions present in the vector store data above
+- Include the EXACT value scores, effort scores, and ratios from the data
+- Do NOT create new actions or modify the scores
+- Extract company names, action descriptions, and metrics directly from the provided data
+- If no relevant data is found, do not generate cards for that category
 
-Generate a brief, natural intro and then use the appropriate tools to create detailed cards based on the market intelligence data.`;
+Generate a brief, natural intro and then use the appropriate tools to create detailed cards based STRICTLY on the market intelligence data provided above.`;
 
     console.log("🔧 Invoking AGENT LLM for dynamic response generation...");
     console.log(

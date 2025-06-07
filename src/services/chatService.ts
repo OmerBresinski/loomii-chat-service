@@ -155,7 +155,7 @@ const generateAssistanceTool = tool(
 const createLLM = (): ChatOpenAI => {
   return new ChatOpenAI({
     modelName: "gpt-4o-mini",
-    temperature: 0.2,
+    temperature: 0,
     streaming: true,
     openAIApiKey: process.env.OPENAI_API_KEY,
   });
@@ -165,7 +165,7 @@ const createLLM = (): ChatOpenAI => {
 const createLLMWithTools = () => {
   const llm = new ChatOpenAI({
     modelName: "gpt-4o-mini",
-    temperature: 0.2,
+    temperature: 0,
     streaming: false, // Tools work better without streaming
     openAIApiKey: process.env.OPENAI_API_KEY,
   });
@@ -474,10 +474,10 @@ const streamBriefIntroWithCards = async (
   history: any[],
   conversationId: string
 ) => {
-  // Create a streaming LLM for intro generation
+  // Create a streaming LLM for intro generation with temperature 0
   const introLLM = new ChatOpenAI({
     modelName: "gpt-4o-mini",
-    temperature: 0.3,
+    temperature: 0,
     streaming: true,
     openAIApiKey: process.env.OPENAI_API_KEY,
   });
