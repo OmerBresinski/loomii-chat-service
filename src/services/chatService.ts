@@ -310,19 +310,16 @@ const shouldReplaceWithCards = async (message: string): Promise<boolean> => {
 const streamMetadataInChunks = async (
   controller: ReadableStreamDefaultController,
   metadata: any,
-  chunkSize: number = 30
+  chunkSize: number = 100
 ) => {
   const metadataString = `\n\n__METADATA__${JSON.stringify(
     metadata
   )}__END_METADATA__`;
 
-  // Stream the metadata string in chunks with noticeable delays
+  // Stream the metadata string in chunks immediately without delays
   for (let i = 0; i < metadataString.length; i += chunkSize) {
     const chunk = metadataString.slice(i, i + chunkSize);
     controller.enqueue(chunk);
-
-    // Longer delay between chunks for more noticeable streaming
-    await new Promise((resolve) => setTimeout(resolve, 100));
   }
 };
 
@@ -341,7 +338,7 @@ const streamRegularTextResponse = async (
   // Get streaming response from LLM
   const llmStream = await llm.stream([...history]);
 
-  // Process the stream with longer delays
+  // Process the stream immediately without artificial delays
   for await (const chunk of llmStream) {
     if (chunk.content) {
       const contentStr =
@@ -349,9 +346,8 @@ const streamRegularTextResponse = async (
           ? chunk.content
           : JSON.stringify(chunk.content);
       fullResponse += contentStr;
-      // Ensure we're streaming raw text, not JSON-stringified text
+      // Stream immediately without delays
       controller.enqueue(contentStr);
-      await new Promise((resolve) => setTimeout(resolve, 50)); // Longer delay
     }
   }
 
@@ -363,11 +359,8 @@ const streamRegularTextResponse = async (
   // Generate cards using LLM with tools (optional supplementary cards)
   const generatedCards = await generateCardsWithLLM(message, fullResponse);
 
-  // Send generated cards as metadata only if they add value using chunked streaming with noticeable delays
+  // Send generated cards as metadata only if they add value using immediate streaming
   if (generatedCards.length > 0) {
-    // Delay before metadata for clear separation
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
     const metadata = {
       timestamp: new Date().toISOString(),
       cards: generatedCards,
@@ -388,22 +381,12 @@ const streamBriefIntroWithCards = async (
   const generatedResponse = await generateDynamicResponseWithCards(message, "");
 
   if (generatedResponse && generatedResponse.introText) {
-    // Stream the LLM-generated intro text in smaller chunks with longer delays
+    // Stream the LLM-generated intro text immediately without artificial delays
     const introText = generatedResponse.introText;
-    const introChunkSize = 5; // Much smaller chunks for more noticeable streaming
-
-    for (let i = 0; i < introText.length; i += introChunkSize) {
-      const chunk = introText.slice(i, i + introChunkSize);
-      // Ensure we're streaming raw text, not JSON-stringified text
-      controller.enqueue(chunk);
-      await new Promise((resolve) => setTimeout(resolve, 80)); // Much longer delay
-    }
-
-    // Longer delay before metadata for clear separation
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    controller.enqueue(introText);
 
     if (generatedResponse.cards && generatedResponse.cards.length > 0) {
-      // Send the cards as the main content using chunked streaming with noticeable delays
+      // Send the cards as the main content using immediate streaming
       const metadata = {
         timestamp: new Date().toISOString(),
         cards: generatedResponse.cards,
@@ -644,11 +627,24 @@ export const createLangGraphWorkflow = () => {
 // New function to generate dynamic response with cards using LLM
 const generateDynamicResponseWithCards = async (
   userMessage: string,
-  aiResponse: string
+  searchResults: string
 ): Promise<{ introText: string; cards: any[] } | null> => {
   try {
-    console.log("🎴 Starting dynamic response generation...");
-    console.log("📝 User message:", userMessage.substring(0, 100) + "...");
+    console.log("🔍 Generating dynamic response with cards for:", userMessage);
+
+    const systemPrompt = `You are an expert business analyst and consultant. Based on the user's request, provide:
+
+1. A brief, contextual introduction (2-3 sentences max) that directly addresses their request
+2. Generate relevant interactive cards using the available tools
+
+Guidelines:
+- Keep the intro concise and actionable
+- Focus on providing immediate value
+- Use tools to generate cards that help the user take action
+- Do not include sources or references in your response
+- Be direct and practical
+
+Available context: ${searchResults}`;
 
     const llmWithTools = createLLMWithTools();
 
@@ -678,6 +674,7 @@ Generate a brief, natural intro and then use the appropriate tools to create det
 
     console.log("🔧 Invoking LLM for dynamic response generation...");
     const response = await llmWithTools.invoke([
+      new HumanMessage(systemPrompt),
       new HumanMessage(dynamicPrompt),
     ]);
 

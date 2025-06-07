@@ -303,6 +303,23 @@ const analyzeQuery = (
   return { searchType: "similarity", k: 3 };
 };
 
+// Helper function to stream metadata in chunks
+const streamMetadataInChunks = async (
+  controller: ReadableStreamDefaultController,
+  metadata: any,
+  chunkSize: number = 100
+) => {
+  const metadataString = `\n\n__METADATA__${JSON.stringify(
+    metadata
+  )}__END_METADATA__`;
+
+  // Stream the metadata string in chunks immediately without delays
+  for (let i = 0; i < metadataString.length; i += chunkSize) {
+    const chunk = metadataString.slice(i, i + chunkSize);
+    controller.enqueue(chunk);
+  }
+};
+
 // Create system prompt for the agent
 const createSystemPrompt = (
   searchResults: string,
@@ -358,40 +375,11 @@ Instructions:
 - Be concise but thorough in your responses
 - If asked about companies not in the data, clearly state that information is not available
 - For competitive analysis, explain how each action helps versus competitors
-- **IMPORTANT: Always include the source links at the end of your response**
-- Format source links exactly as shown in the search results using markdown link format
+- **IMPORTANT: Do NOT include any sources or links in your response**
 
 Remember: You are an expert analyst helping with cybersecurity market intelligence and competitive analysis, with a focus on actionable, high-impact recommendations.
 
-Important: Always provide the source links for the information in your response. The links are properties of the metadata object in the search results.
-
-Example format for including sources:
-
-## Sources
-[Source 1](https://example.com/link1)
-[Source 2](https://example.com/link2)
-
 Make sure to always end the response with a question asking the user if they want assistance with moving forward with the recommendations, such as creating a plan, timeline, or next steps. Make sure that this question is formatted in such a way that the user won't miss it.`;
-};
-
-// Helper function to stream metadata in chunks
-const streamMetadataInChunks = async (
-  controller: ReadableStreamDefaultController,
-  metadata: any,
-  chunkSize: number = 30
-) => {
-  const metadataString = `\n\n__METADATA__${JSON.stringify(
-    metadata
-  )}__END_METADATA__`;
-
-  // Stream the metadata string in chunks with noticeable delays
-  for (let i = 0; i < metadataString.length; i += chunkSize) {
-    const chunk = metadataString.slice(i, i + chunkSize);
-    controller.enqueue(chunk);
-
-    // Longer delay between chunks for more noticeable streaming
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
 };
 
 // Stream agent response with vector search context
@@ -537,21 +525,11 @@ const streamAgentBriefIntroWithCards = async (
     generatedResponse.cards &&
     generatedResponse.cards.length > 0
   ) {
-    // Stream the LLM-generated intro text in smaller chunks with longer delays
+    // Stream the LLM-generated intro text immediately without artificial delays
     const introText = generatedResponse.introText;
-    const introChunkSize = 5; // Much smaller chunks for more noticeable streaming
+    controller.enqueue(introText);
 
-    for (let i = 0; i < introText.length; i += introChunkSize) {
-      const chunk = introText.slice(i, i + introChunkSize);
-      // Ensure we're streaming raw text, not JSON-stringified text
-      controller.enqueue(chunk);
-      await new Promise((resolve) => setTimeout(resolve, 80)); // Much longer delay
-    }
-
-    // Longer delay before metadata for clear separation
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    // Send the cards as the main content using chunked streaming
+    // Send the cards as the main content using immediate streaming
     const metadata = {
       timestamp: new Date().toISOString(),
       cards: generatedResponse.cards,
@@ -567,20 +545,15 @@ const streamAgentBriefIntroWithCards = async (
     history.push(aiMessage);
     updateConversationHistory(conversationId, history);
 
-    // Stream metadata in chunks with noticeable delays
+    // Stream metadata immediately
     await streamMetadataInChunks(controller, metadata);
   } else {
     // If no intro or cards generated, provide a simple fallback message
     const fallbackMessage =
       "I understand your request. Let me provide some insights based on our market intelligence.";
 
-    // Stream fallback message in smaller chunks with delays
-    const fallbackChunkSize = 5;
-    for (let i = 0; i < fallbackMessage.length; i += fallbackChunkSize) {
-      const chunk = fallbackMessage.slice(i, i + fallbackChunkSize);
-      controller.enqueue(chunk);
-      await new Promise((resolve) => setTimeout(resolve, 80));
-    }
+    // Stream fallback message immediately
+    controller.enqueue(fallbackMessage);
 
     // Add to history
     history.push(userMessage);
@@ -664,18 +637,15 @@ const streamRegularAgentResponse = async (
 
   let fullResponse = "";
 
-  // Process the streaming response with longer delays
+  // Process the streaming response immediately without artificial delays
   for await (const chunk of streamResponse) {
     const content = chunk.content;
     if (content) {
       const contentStr =
         typeof content === "string" ? content : JSON.stringify(content);
       fullResponse += contentStr;
-      // Ensure we're streaming raw text, not JSON-stringified text
+      // Stream immediately without delays
       controller.enqueue(contentStr);
-
-      // Longer delay to ensure chunks are sent individually and noticeably
-      await new Promise((resolve) => setTimeout(resolve, 50));
     }
   }
 
@@ -689,10 +659,7 @@ const streamRegularAgentResponse = async (
     updateConversationHistory(conversationId, history);
   }
 
-  // Delay before metadata for clear separation
-  await new Promise((resolve) => setTimeout(resolve, 500));
-
-  // Send structured metadata at the end (optional supplementary cards) using chunked streaming with noticeable delays
+  // Send structured metadata at the end (optional supplementary cards) using immediate streaming
   const metadata = await generateAgentCardsWithLLM(
     message,
     fullResponse,
