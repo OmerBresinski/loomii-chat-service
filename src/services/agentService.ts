@@ -539,9 +539,7 @@ const streamAgentBriefIntroWithCards = async (
     updateConversationHistory(conversationId, history);
 
     controller.enqueue(
-      `\n\n__CARDS_REPLACE_CONTENT__${JSON.stringify(
-        metadata
-      )}__END_CARDS_REPLACE_CONTENT__`
+      `\n\n__METADATA__${JSON.stringify(metadata)}__END_METADATA__`
     );
   } else {
     // If no intro or cards generated, provide a simple fallback message
