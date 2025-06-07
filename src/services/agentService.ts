@@ -477,20 +477,20 @@ const streamAgentBriefIntroWithCards = async (
     openAIApiKey: process.env.OPENAI_API_KEY,
   });
 
-  const introPrompt = `You are a cybersecurity market intelligence assistant. The user asked: "${message}"
+  const introPrompt = `You are a market intelligence assistant. The user asked: "${message}"
 
 Generate a brief, natural introductory response (1-2 sentences) that:
 - Acknowledges their specific request in the context of cybersecurity market intelligence
 - Sets up the expectation that detailed market intelligence follows in interactive cards
 - Is conversational and professional, not robotic
 - Does NOT repeat information that will be in the cards themselves
-- Focuses on cybersecurity/competitive intelligence context
+- Focuses on competitive intelligence context
 
 Examples of good intros:
-- "Based on our cybersecurity market intelligence, here are some strategic quick wins you can implement:"
-- "I've analyzed the competitive landscape and identified several high-impact opportunities:"
-- "Drawing from our market data, here are actionable insights to strengthen your position:"
-- "Our intelligence shows several strategic moves that can enhance your cybersecurity posture:"
+- Based on our market intelligence, here are some strategic quick wins you can implement:
+- I've analyzed the competitive landscape and identified several high-impact opportunities:
+- Drawing from our market data, here are actionable insights to strengthen your position:
+- Our intelligence shows several strategic moves that can enhance your cybersecurity posture:
 
 Generate only the intro text, nothing else.`;
 
@@ -514,7 +514,11 @@ Generate only the intro text, nothing else.`;
   // Add a newline after intro
   controller.enqueue("\n\n");
 
-  // Initialize vector store and get search results for context in parallel
+  // Immediately start streaming the metadata marker to indicate cards are coming
+  console.log("🎴 Starting metadata stream...");
+  controller.enqueue("__METADATA__");
+
+  // Initialize vector store and perform search in the background
   console.log("🔄 Initializing vector store with orionData...");
   const initPromise = initializeVectorStore();
 
@@ -571,12 +575,24 @@ Generate only the intro text, nothing else.`;
     generatedCards.cards &&
     generatedCards.cards.length > 0
   ) {
-    // Send the cards as metadata
+    // Create the metadata object
     const metadata = {
       timestamp: new Date().toISOString(),
       cards: generatedCards.cards,
       replaceText: false, // Cards supplement the intro
     };
+
+    // Stream the metadata content in chunks
+    const metadataContent = JSON.stringify(metadata);
+    const chunkSize = 100;
+
+    for (let i = 0; i < metadataContent.length; i += chunkSize) {
+      const chunk = metadataContent.slice(i, i + chunkSize);
+      controller.enqueue(chunk);
+    }
+
+    // Close the metadata marker
+    controller.enqueue("__END_METADATA__");
 
     // Add to history
     history.push(userMessage);
@@ -587,12 +603,11 @@ Generate only the intro text, nothing else.`;
     history.push(aiMessage);
     updateConversationHistory(conversationId, history);
 
-    // Stream metadata immediately
-    await streamMetadataInChunks(controller, metadata);
-
     console.log("✅ Brief intro + cards response completed successfully");
   } else {
-    // If no cards generated, fall back to regular agent response
+    // If no cards generated, close the metadata marker and fall back
+    controller.enqueue("{}__END_METADATA__");
+
     console.log(
       "⚠️ No cards generated, falling back to regular agent response"
     );
