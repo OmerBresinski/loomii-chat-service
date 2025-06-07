@@ -1,7 +1,7 @@
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { FaissStore } from "@langchain/community/vectorstores/faiss";
 import { Document } from "@langchain/core/documents";
-import { orion_data, AiInsight } from "./orionData";
+import { data, AiInsight } from "./data";
 import dotenv from "dotenv";
 
 // Load environment variables
@@ -110,12 +110,8 @@ export const initializeVectorStore = async (): Promise<FaissStore> => {
     });
 
     // Create both insight-level and action-level documents
-    const insightDocuments = orion_data.aiInsights.map(
-      createDocumentFromInsight
-    );
-    const actionDocuments = orion_data.aiInsights.flatMap(
-      createDocumentsFromActions
-    );
+    const insightDocuments = data.aiInsights.map(createDocumentFromInsight);
+    const actionDocuments = data.aiInsights.flatMap(createDocumentsFromActions);
 
     // Combine all documents
     const allDocuments = [...insightDocuments, ...actionDocuments];
