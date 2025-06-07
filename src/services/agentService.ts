@@ -374,6 +374,26 @@ Example format for including sources:
 Make sure to always end the response with a question asking the user if they want assistance with moving forward with the recommendations, such as creating a plan, timeline, or next steps. Make sure that this question is formatted in such a way that the user won't miss it.`;
 };
 
+// Helper function to stream metadata in chunks
+const streamMetadataInChunks = async (
+  controller: ReadableStreamDefaultController,
+  metadata: any,
+  chunkSize: number = 100
+) => {
+  const metadataString = `\n\n__METADATA__${JSON.stringify(
+    metadata
+  )}__END_METADATA__`;
+
+  // Stream the metadata string in chunks
+  for (let i = 0; i < metadataString.length; i += chunkSize) {
+    const chunk = metadataString.slice(i, i + chunkSize);
+    controller.enqueue(chunk);
+
+    // Small delay between chunks for natural streaming feel
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+};
+
 // Stream agent response with vector search context
 export const streamAgentResponse = async (
   message: string,
@@ -517,13 +537,20 @@ const streamAgentBriefIntroWithCards = async (
     generatedResponse.cards &&
     generatedResponse.cards.length > 0
   ) {
-    // Stream the LLM-generated intro text
-    controller.enqueue(generatedResponse.introText);
+    // Stream the LLM-generated intro text in chunks
+    const introText = generatedResponse.introText;
+    const introChunkSize = 20;
+
+    for (let i = 0; i < introText.length; i += introChunkSize) {
+      const chunk = introText.slice(i, i + introChunkSize);
+      controller.enqueue(chunk);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
 
     // Small delay for natural feel
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    // Send the cards as the main content
+    // Send the cards as the main content using chunked streaming
     const metadata = {
       timestamp: new Date().toISOString(),
       cards: generatedResponse.cards,
@@ -539,14 +566,20 @@ const streamAgentBriefIntroWithCards = async (
     history.push(aiMessage);
     updateConversationHistory(conversationId, history);
 
-    controller.enqueue(
-      `\n\n__METADATA__${JSON.stringify(metadata)}__END_METADATA__`
-    );
+    // Stream metadata in chunks
+    await streamMetadataInChunks(controller, metadata);
   } else {
     // If no intro or cards generated, provide a simple fallback message
     const fallbackMessage =
       "I understand your request. Let me provide some insights based on our market intelligence.";
-    controller.enqueue(fallbackMessage);
+
+    // Stream fallback message in chunks
+    const fallbackChunkSize = 20;
+    for (let i = 0; i < fallbackMessage.length; i += fallbackChunkSize) {
+      const chunk = fallbackMessage.slice(i, i + fallbackChunkSize);
+      controller.enqueue(chunk);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
 
     // Add to history
     history.push(userMessage);
@@ -654,7 +687,7 @@ const streamRegularAgentResponse = async (
     updateConversationHistory(conversationId, history);
   }
 
-  // Send structured metadata at the end (optional supplementary cards)
+  // Send structured metadata at the end (optional supplementary cards) using chunked streaming
   const metadata = await generateAgentCardsWithLLM(
     message,
     fullResponse,
@@ -662,9 +695,7 @@ const streamRegularAgentResponse = async (
   );
   if (metadata) {
     metadata.replaceText = false; // Flag to indicate cards supplement text
-    controller.enqueue(
-      `\n\n__METADATA__${JSON.stringify(metadata)}__END_METADATA__`
-    );
+    await streamMetadataInChunks(controller, metadata);
   }
 };
 

@@ -306,6 +306,26 @@ const shouldReplaceWithCards = async (message: string): Promise<boolean> => {
   return cardOnlyTriggers.some((pattern) => pattern.test(message));
 };
 
+// Helper function to stream metadata in chunks
+const streamMetadataInChunks = async (
+  controller: ReadableStreamDefaultController,
+  metadata: any,
+  chunkSize: number = 100
+) => {
+  const metadataString = `\n\n__METADATA__${JSON.stringify(
+    metadata
+  )}__END_METADATA__`;
+
+  // Stream the metadata string in chunks
+  for (let i = 0; i < metadataString.length; i += chunkSize) {
+    const chunk = metadataString.slice(i, i + chunkSize);
+    controller.enqueue(chunk);
+
+    // Small delay between chunks for natural streaming feel
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+};
+
 // Helper function for regular text streaming
 const streamRegularTextResponse = async (
   controller: ReadableStreamDefaultController,
@@ -342,16 +362,14 @@ const streamRegularTextResponse = async (
   // Generate cards using LLM with tools (optional supplementary cards)
   const generatedCards = await generateCardsWithLLM(message, fullResponse);
 
-  // Send generated cards as metadata only if they add value
+  // Send generated cards as metadata only if they add value using chunked streaming
   if (generatedCards.length > 0) {
     const metadata = {
       timestamp: new Date().toISOString(),
       cards: generatedCards,
       replaceText: false, // Flag to indicate cards supplement text
     };
-    controller.enqueue(
-      `\n\n__METADATA__${JSON.stringify(metadata)}__END_METADATA__`
-    );
+    await streamMetadataInChunks(controller, metadata);
   }
 };
 
@@ -366,14 +384,21 @@ const streamBriefIntroWithCards = async (
   const generatedResponse = await generateDynamicResponseWithCards(message, "");
 
   if (generatedResponse && generatedResponse.introText) {
-    // Stream the LLM-generated intro text
-    controller.enqueue(generatedResponse.introText);
+    // Stream the LLM-generated intro text in chunks
+    const introText = generatedResponse.introText;
+    const introChunkSize = 20;
+
+    for (let i = 0; i < introText.length; i += introChunkSize) {
+      const chunk = introText.slice(i, i + introChunkSize);
+      controller.enqueue(chunk);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
 
     // Small delay for natural feel
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     if (generatedResponse.cards && generatedResponse.cards.length > 0) {
-      // Send the cards as the main content
+      // Send the cards as the main content using chunked streaming
       const metadata = {
         timestamp: new Date().toISOString(),
         cards: generatedResponse.cards,
@@ -387,9 +412,7 @@ const streamBriefIntroWithCards = async (
       history.push(aiMessage);
       updateConversationHistory(conversationId, history);
 
-      controller.enqueue(
-        `\n\n__METADATA__${JSON.stringify(metadata)}__END_METADATA__`
-      );
+      await streamMetadataInChunks(controller, metadata);
     } else {
       // Fallback to regular response if no cards generated
       await streamRegularTextResponse(
