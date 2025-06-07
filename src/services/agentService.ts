@@ -378,19 +378,19 @@ Make sure to always end the response with a question asking the user if they wan
 const streamMetadataInChunks = async (
   controller: ReadableStreamDefaultController,
   metadata: any,
-  chunkSize: number = 100
+  chunkSize: number = 30
 ) => {
   const metadataString = `\n\n__METADATA__${JSON.stringify(
     metadata
   )}__END_METADATA__`;
 
-  // Stream the metadata string in chunks
+  // Stream the metadata string in chunks with noticeable delays
   for (let i = 0; i < metadataString.length; i += chunkSize) {
     const chunk = metadataString.slice(i, i + chunkSize);
     controller.enqueue(chunk);
 
-    // Small delay between chunks for natural streaming feel
-    await new Promise((resolve) => setTimeout(resolve, 5));
+    // Longer delay between chunks for more noticeable streaming
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
 };
 
@@ -537,18 +537,19 @@ const streamAgentBriefIntroWithCards = async (
     generatedResponse.cards &&
     generatedResponse.cards.length > 0
   ) {
-    // Stream the LLM-generated intro text in chunks
+    // Stream the LLM-generated intro text in smaller chunks with longer delays
     const introText = generatedResponse.introText;
-    const introChunkSize = 20;
+    const introChunkSize = 5; // Much smaller chunks for more noticeable streaming
 
     for (let i = 0; i < introText.length; i += introChunkSize) {
       const chunk = introText.slice(i, i + introChunkSize);
+      // Ensure we're streaming raw text, not JSON-stringified text
       controller.enqueue(chunk);
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 80)); // Much longer delay
     }
 
-    // Small delay for natural feel
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Longer delay before metadata for clear separation
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     // Send the cards as the main content using chunked streaming
     const metadata = {
@@ -566,19 +567,19 @@ const streamAgentBriefIntroWithCards = async (
     history.push(aiMessage);
     updateConversationHistory(conversationId, history);
 
-    // Stream metadata in chunks
+    // Stream metadata in chunks with noticeable delays
     await streamMetadataInChunks(controller, metadata);
   } else {
     // If no intro or cards generated, provide a simple fallback message
     const fallbackMessage =
       "I understand your request. Let me provide some insights based on our market intelligence.";
 
-    // Stream fallback message in chunks
-    const fallbackChunkSize = 20;
+    // Stream fallback message in smaller chunks with delays
+    const fallbackChunkSize = 5;
     for (let i = 0; i < fallbackMessage.length; i += fallbackChunkSize) {
       const chunk = fallbackMessage.slice(i, i + fallbackChunkSize);
       controller.enqueue(chunk);
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 80));
     }
 
     // Add to history
@@ -663,17 +664,18 @@ const streamRegularAgentResponse = async (
 
   let fullResponse = "";
 
-  // Process the streaming response
+  // Process the streaming response with longer delays
   for await (const chunk of streamResponse) {
     const content = chunk.content;
     if (content) {
       const contentStr =
         typeof content === "string" ? content : JSON.stringify(content);
       fullResponse += contentStr;
+      // Ensure we're streaming raw text, not JSON-stringified text
       controller.enqueue(contentStr);
 
-      // Small delay to ensure chunks are sent individually
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      // Longer delay to ensure chunks are sent individually and noticeably
+      await new Promise((resolve) => setTimeout(resolve, 50));
     }
   }
 
@@ -687,7 +689,10 @@ const streamRegularAgentResponse = async (
     updateConversationHistory(conversationId, history);
   }
 
-  // Send structured metadata at the end (optional supplementary cards) using chunked streaming
+  // Delay before metadata for clear separation
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
+  // Send structured metadata at the end (optional supplementary cards) using chunked streaming with noticeable delays
   const metadata = await generateAgentCardsWithLLM(
     message,
     fullResponse,

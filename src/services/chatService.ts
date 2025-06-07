@@ -310,19 +310,19 @@ const shouldReplaceWithCards = async (message: string): Promise<boolean> => {
 const streamMetadataInChunks = async (
   controller: ReadableStreamDefaultController,
   metadata: any,
-  chunkSize: number = 100
+  chunkSize: number = 30
 ) => {
   const metadataString = `\n\n__METADATA__${JSON.stringify(
     metadata
   )}__END_METADATA__`;
 
-  // Stream the metadata string in chunks
+  // Stream the metadata string in chunks with noticeable delays
   for (let i = 0; i < metadataString.length; i += chunkSize) {
     const chunk = metadataString.slice(i, i + chunkSize);
     controller.enqueue(chunk);
 
-    // Small delay between chunks for natural streaming feel
-    await new Promise((resolve) => setTimeout(resolve, 5));
+    // Longer delay between chunks for more noticeable streaming
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
 };
 
@@ -341,7 +341,7 @@ const streamRegularTextResponse = async (
   // Get streaming response from LLM
   const llmStream = await llm.stream([...history]);
 
-  // Process the stream
+  // Process the stream with longer delays
   for await (const chunk of llmStream) {
     if (chunk.content) {
       const contentStr =
@@ -349,8 +349,9 @@ const streamRegularTextResponse = async (
           ? chunk.content
           : JSON.stringify(chunk.content);
       fullResponse += contentStr;
+      // Ensure we're streaming raw text, not JSON-stringified text
       controller.enqueue(contentStr);
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 50)); // Longer delay
     }
   }
 
@@ -362,8 +363,11 @@ const streamRegularTextResponse = async (
   // Generate cards using LLM with tools (optional supplementary cards)
   const generatedCards = await generateCardsWithLLM(message, fullResponse);
 
-  // Send generated cards as metadata only if they add value using chunked streaming
+  // Send generated cards as metadata only if they add value using chunked streaming with noticeable delays
   if (generatedCards.length > 0) {
+    // Delay before metadata for clear separation
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
     const metadata = {
       timestamp: new Date().toISOString(),
       cards: generatedCards,
@@ -384,21 +388,22 @@ const streamBriefIntroWithCards = async (
   const generatedResponse = await generateDynamicResponseWithCards(message, "");
 
   if (generatedResponse && generatedResponse.introText) {
-    // Stream the LLM-generated intro text in chunks
+    // Stream the LLM-generated intro text in smaller chunks with longer delays
     const introText = generatedResponse.introText;
-    const introChunkSize = 20;
+    const introChunkSize = 5; // Much smaller chunks for more noticeable streaming
 
     for (let i = 0; i < introText.length; i += introChunkSize) {
       const chunk = introText.slice(i, i + introChunkSize);
+      // Ensure we're streaming raw text, not JSON-stringified text
       controller.enqueue(chunk);
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 80)); // Much longer delay
     }
 
-    // Small delay for natural feel
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Longer delay before metadata for clear separation
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     if (generatedResponse.cards && generatedResponse.cards.length > 0) {
-      // Send the cards as the main content using chunked streaming
+      // Send the cards as the main content using chunked streaming with noticeable delays
       const metadata = {
         timestamp: new Date().toISOString(),
         cards: generatedResponse.cards,
