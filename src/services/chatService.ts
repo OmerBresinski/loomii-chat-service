@@ -145,7 +145,8 @@ const generateAssistanceTool = tool(
       title: z.string().describe("Title for assistance suggestions"),
       suggestions: z
         .array(z.string())
-        .describe("List of suggested follow-up questions or actions"),
+        .max(3)
+        .describe("List of suggested follow-up questions or actions (max 3)"),
     }),
   }
 );
@@ -153,7 +154,7 @@ const generateAssistanceTool = tool(
 // Create regular LLM for streaming
 const createLLM = (): ChatOpenAI => {
   return new ChatOpenAI({
-    modelName: "gpt-4.1-mini",
+    modelName: "gpt-4o-mini",
     temperature: 0.2,
     streaming: true,
     openAIApiKey: process.env.OPENAI_API_KEY,
@@ -163,7 +164,7 @@ const createLLM = (): ChatOpenAI => {
 // Create LLM with tools for card generation
 const createLLMWithTools = () => {
   const llm = new ChatOpenAI({
-    modelName: "gpt-4.1-mini",
+    modelName: "gpt-4o-mini",
     temperature: 0.2,
     streaming: false, // Tools work better without streaming
     openAIApiKey: process.env.OPENAI_API_KEY,

@@ -150,7 +150,8 @@ const generateAssistanceTool = tool(
       title: z.string().describe("Title for the assistance suggestions"),
       suggestions: z
         .array(z.string())
-        .describe("List of follow-up questions or suggestions"),
+        .max(3)
+        .describe("List of follow-up questions or suggestions (max 3)"),
     }),
   }
 );
@@ -158,7 +159,7 @@ const generateAssistanceTool = tool(
 // Initialize OpenAI ChatGPT for the agent
 const createAgentLLM = (): ChatOpenAI => {
   return new ChatOpenAI({
-    modelName: "gpt-4.1-mini",
+    modelName: "gpt-4o-mini",
     temperature: 0.2,
     streaming: true,
     openAIApiKey: process.env.OPENAI_API_KEY,
@@ -775,7 +776,7 @@ export const searchOrionData = async (
 // Create LLM with tools for card generation
 const createLLMWithTools = () => {
   const llm = new ChatOpenAI({
-    modelName: "gpt-4.1-mini",
+    modelName: "gpt-4o-mini",
     temperature: 0.2,
     streaming: false,
     openAIApiKey: process.env.OPENAI_API_KEY,
@@ -896,7 +897,7 @@ const generateBriefIntro = async (message: string): Promise<string> => {
     console.log("🔧 Generating dynamic intro text with LLM...");
 
     const llm = new ChatOpenAI({
-      modelName: "gpt-4.1-mini",
+      modelName: "gpt-4o-mini",
       temperature: 0.3,
       streaming: false,
       openAIApiKey: process.env.OPENAI_API_KEY,
