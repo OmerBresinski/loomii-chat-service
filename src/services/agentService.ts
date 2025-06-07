@@ -995,7 +995,7 @@ CRITICAL REQUIREMENTS:
 - Extract company names, action descriptions, and metrics directly from the provided data
 - If no relevant data is found, do not generate cards for that category
 
-Focus on market intelligence context. Extract value/effort scores, competitive insights, and actionable recommendations ONLY from the provided vector store data.`;
+Focus on market intelligence context. Extract value/effort scores, competitive insights, and actionable recommendations, as well as the company names ONLY from the provided vector store data.`;
 
     console.log("🔧 Invoking AGENT LLM with tools for card generation...");
     const response = await llmWithTools.invoke([
