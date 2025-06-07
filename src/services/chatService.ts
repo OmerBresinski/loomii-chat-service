@@ -140,13 +140,15 @@ const generateAssistanceTool = tool(
   {
     name: "generate_assistance_suggestions",
     description:
-      "Generate follow-up assistance suggestions to help the user continue the conversation or explore related topics",
+      "Generate follow-up assistance suggestions to help the user continue the conversation or explore related topics. Format suggestions as if the user is writing them (first person), since they will be pasted into the chat when clicked.",
     schema: z.object({
       title: z.string().describe("Title for assistance suggestions"),
       suggestions: z
         .array(z.string())
         .max(3)
-        .describe("List of suggested follow-up questions or actions (max 3)"),
+        .describe(
+          "List of suggested follow-up questions or requests phrased from the user's perspective (e.g., 'Give me more quick wins', 'Show me competitive analysis', 'I need help with implementation') - max 3"
+        ),
     }),
   }
 );
@@ -572,6 +574,13 @@ Analyze if the user's request and the assistant's response would benefit from in
 2. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis
 3. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
 
+For assistance suggestions, phrase them from the USER'S perspective since they will be pasted into the chat when clicked. Examples:
+- "Give me more quick wins for this topic"
+- "Show me competitive analysis"
+- "I need help with implementation"
+- "What should I prioritize next?"
+- "Help me understand the market better"
+
 Only generate cards that add value to the conversation. If the response is just informational without actionable elements, you may skip action cards but still provide assistance suggestions.`;
 
     console.log("🔧 Invoking LLM with tools for card generation...");
@@ -704,6 +713,11 @@ Use the tools to generate cards when:
 1. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins  
 2. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis
 3. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
+
+For assistance suggestions, phrase them from the USER'S perspective since they will be pasted into the chat when clicked. Examples:
+- "Give me more quick wins for this area"
+- "Show me competitive analysis"
+- "I need help with implementation"
 
 Generate a brief, natural intro and then use the appropriate tools to create detailed cards.`;
 

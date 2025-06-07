@@ -145,13 +145,15 @@ const generateAssistanceTool = tool(
   {
     name: "generate_assistance_suggestions",
     description:
-      "Generate assistance suggestions to help continue the conversation",
+      "Generate assistance suggestions to help continue the conversation. Format suggestions as if the user is writing them (first person), since they will be pasted into the chat when clicked.",
     schema: z.object({
       title: z.string().describe("Title for the assistance suggestions"),
       suggestions: z
         .array(z.string())
         .max(3)
-        .describe("List of follow-up questions or suggestions (max 3)"),
+        .describe(
+          "List of follow-up questions or requests phrased from the user's perspective (e.g., 'Give me more quick wins', 'Show me competitive analysis', 'I need help with implementation') - max 3"
+        ),
     }),
   }
 );
@@ -961,41 +963,31 @@ const generateAgentCardsWithLLM = async (
     console.log("🎴 Starting AGENT card generation process...");
     console.log("📝 User message:", userMessage.substring(0, 100) + "...");
     console.log("🤖 AI response length:", aiResponse.length);
-    console.log("🔍 Search results count:", searchResults?.length || 0);
+    console.log("🔍 Search results count:", searchResults.length);
 
     const llmWithTools = createLLMWithTools();
 
-    // Format search results for the prompt to ensure data-driven responses
-    const formattedSearchResults = formatSearchResults(searchResults);
-
-    const cardGenerationPrompt = `Based on this market intelligence conversation and the provided data:
+    const cardGenerationPrompt = `Based on this conversation:
 
 User: ${userMessage}
 Assistant: ${aiResponse}
 
-IMPORTANT: Use ONLY the data provided below from the vector store. Do not generate any information that is not explicitly present in this data.
+Search Results Context: ${JSON.stringify(searchResults, null, 2)}
 
-Vector Store Data:
-${formattedSearchResults}
+Analyze if the user's request and the assistant's response would benefit from interactive cards. Use the available tools to generate appropriate cards when:
 
-The assistant used vector search and found ${
-      searchResults?.length || 0
-    } relevant insights from the market data.
-
-Generate interactive cards based STRICTLY on the provided vector store data. Use the available tools to generate appropriate cards when:
-
-1. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins (use ONLY the actions from the data above with their exact value/effort scores)
-2. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis (extract from the data above)
+1. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins  
+2. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis
 3. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
 
-CRITICAL REQUIREMENTS:
-- For quick wins: Use ONLY the actions present in the vector store data above
-- Include the EXACT value scores, effort scores, and ratios from the data
-- Do NOT create new actions or modify the scores
-- Extract company names, action descriptions, and metrics directly from the provided data
-- If no relevant data is found, do not generate cards for that category
+For assistance suggestions, phrase them from the USER'S perspective since they will be pasted into the chat when clicked. Examples:
+- "Give me more quick wins for cybersecurity"
+- "Show me competitive analysis for this market"
+- "I need help with implementation"
+- "What are the next steps I should take?"
+- "Help me prioritize these actions"
 
-Focus on market intelligence context. Extract value/effort scores, competitive insights, and actionable recommendations, as well as the company names ONLY from the provided vector store data.`;
+Only generate cards that add value to the conversation. If the response is just informational without actionable elements, you may skip action cards but still provide assistance suggestions.`;
 
     console.log("🔧 Invoking AGENT LLM with tools for card generation...");
     const response = await llmWithTools.invoke([
@@ -1016,11 +1008,6 @@ Focus on market intelligence context. Extract value/effort scores, competitive i
         try {
           let result;
           switch (toolCall.name) {
-            // case "generate_action_list": // Disabled
-            //   result = await generateActionListTool.invoke(
-            //     toolCall.args as any
-            //   );
-            //   break;
             case "generate_quick_wins":
               result = await generateQuickWinsTool.invoke(toolCall.args as any);
               break;
@@ -1054,14 +1041,12 @@ Focus on market intelligence context. Extract value/effort scores, competitive i
       `🎴 AGENT Card generation complete. Generated ${cards.length} cards`
     );
 
-    return cards.length > 0
-      ? {
-          timestamp: new Date().toISOString(),
-          cards,
-        }
-      : null;
+    return {
+      timestamp: new Date().toISOString(),
+      cards,
+    };
   } catch (error) {
-    console.error("❌ Error generating agent cards:", error);
+    console.error("❌ Error generating AGENT cards:", error);
     return null;
   }
 };
@@ -1103,86 +1088,82 @@ Generate only the intro text, nothing else. Use a friendly tone with a relaxed, 
   }
 };
 
-// New function to generate dynamic response with cards using LLM for agent mode
+// New function to generate dynamic response with cards using LLM
 const generateAgentDynamicResponseWithCards = async (
   userMessage: string,
   aiResponse: string,
   searchResults: any[]
 ): Promise<{ introText: string; cards: any[] } | null> => {
   try {
-    console.log("🎴 Starting AGENT dynamic response generation...");
+    console.log(
+      "🔍 Generating AGENT dynamic response with cards for:",
+      userMessage
+    );
     console.log("📝 User message:", userMessage.substring(0, 100) + "...");
-    console.log("🔍 Search results count:", searchResults?.length || 0);
+    console.log("🔍 Search results:", searchResults.length);
+    console.log("🔧 Dynamic prompt being sent to LLM...");
+
+    const systemPrompt = `You are an expert business analyst and consultant with access to market intelligence data. Based on the user's request, provide:
+
+1. A brief, contextual introduction (2-3 sentences max) that directly addresses their request
+2. Generate relevant interactive cards using the available tools
+
+Guidelines:
+- Keep the intro concise and actionable
+- Focus on providing immediate value
+- Use tools to generate cards that help the user take action
+- Do not include sources or references in your response
+- Be direct and practical
+
+Available context: ${JSON.stringify(searchResults, null, 2)}`;
 
     const llmWithTools = createLLMWithTools();
 
-    // Format search results for the prompt
-    const formattedSearchResults = formatSearchResults(searchResults);
-
     const dynamicPrompt = `The user asked: "${userMessage}"
 
-I have access to ${
-      searchResults?.length || 0
-    } relevant market intelligence insights from the vector database.
-
-IMPORTANT: Use ONLY the data provided below from the vector store. Do not generate any information that is not explicitly present in this data.
-
-Vector Store Data:
-${formattedSearchResults}
-
 Your task is to:
-1. Generate an appropriate brief introductory response (1-2 sentences) that acknowledges their request in the context of market intelligence
-2. Use the available tools to create interactive cards that provide detailed, data-driven answers based STRICTLY on the provided vector store data
+1. Generate an appropriate brief introductory response (1-2 sentences) that acknowledges their request
+2. Use the available tools to create interactive cards that provide the detailed answer
 
 Guidelines for the intro:
 - Be natural and conversational, not robotic
-- Acknowledge what they're asking for specifically in a market intelligence context
-- Set up the expectation that detailed market intelligence follows in the cards
+- Acknowledge what they're asking for specifically
+- Set up the expectation that detailed information follows in the cards
 - Don't repeat information that will be in the cards
 - Examples of good intros:
-  * "Based on our market intelligence, here are some strategic recommendations:"
-  * "I've analyzed the competitive landscape and identified several opportunities:"
-  * "Drawing from market data, here are actionable insights:"
+  * "I can help you with that! Here are some actionable recommendations:"
+  * "Great question! Let me provide you with some strategic insights:"
+  * "Absolutely! I've identified several opportunities for you:"
 
 Use the tools to generate cards when:
-1. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins (use ONLY the actions from the data above with their exact value/effort scores)
-2. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis (extract from the data above)
+1. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins  
+2. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis
 3. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
 
-CRITICAL REQUIREMENTS:
-- For quick wins: Use ONLY the actions present in the vector store data above
-- Include the EXACT value scores, effort scores, and ratios from the data
-- Do NOT create new actions or modify the scores
-- Extract company names, action descriptions, and metrics directly from the provided data
-- If no relevant data is found, do not generate cards for that category
+For assistance suggestions, phrase them from the USER'S perspective since they will be pasted into the chat when clicked. Examples:
+- "Give me more quick wins for this area"
+- "Show me competitive analysis"
+- "I need help with implementation"
+- "What should I prioritize next?"
 
-Generate a brief, natural intro and then use the appropriate tools to create detailed cards based STRICTLY on the market intelligence data provided above.`;
+Generate a brief, natural intro and then use the appropriate tools to create detailed cards.`;
 
-    console.log("🔧 Invoking AGENT LLM for dynamic response generation...");
-    console.log(
-      "📋 Prompt being sent:",
-      dynamicPrompt.substring(0, 200) + "..."
-    );
-
+    console.log("🔧 Invoking LLM for AGENT dynamic response generation...");
     const response = await llmWithTools.invoke([
+      new HumanMessage(systemPrompt),
       new HumanMessage(dynamicPrompt),
     ]);
 
     // Extract intro text from the response
-    let introText = response.content?.toString() || "";
+    const introText = response.content?.toString() || "";
 
     console.log(
-      "📊 AGENT dynamic response received. Tool calls:",
+      "📊 AGENT Dynamic response received. Tool calls:",
       response.tool_calls?.length || 0
     );
     console.log(
       "📝 Generated intro text:",
       introText.substring(0, 100) + "..."
-    );
-    console.log("🔍 Full response content:", response.content);
-    console.log(
-      "🛠️ Tool calls details:",
-      JSON.stringify(response.tool_calls, null, 2)
     );
 
     const cards: any[] = [];
@@ -1191,15 +1172,9 @@ Generate a brief, natural intro and then use the appropriate tools to create det
       console.log("🛠️ Processing AGENT tool calls...");
       for (const toolCall of response.tool_calls) {
         console.log(`🔧 Processing AGENT tool: ${toolCall.name}`);
-        console.log(`🔧 Tool args:`, JSON.stringify(toolCall.args, null, 2));
         try {
           let result;
           switch (toolCall.name) {
-            // case "generate_action_list": // Disabled
-            //   result = await generateActionListTool.invoke(
-            //     toolCall.args as any
-            //   );
-            //   break;
             case "generate_quick_wins":
               result = await generateQuickWinsTool.invoke(toolCall.args as any);
               break;
@@ -1216,7 +1191,6 @@ Generate a brief, natural intro and then use the appropriate tools to create det
           }
           if (result) {
             console.log(`✅ AGENT Tool ${toolCall.name} executed successfully`);
-            console.log(`📋 Tool result:`, JSON.stringify(result, null, 2));
             cards.push(result);
           }
         } catch (error) {
@@ -1226,44 +1200,29 @@ Generate a brief, natural intro and then use the appropriate tools to create det
           );
         }
       }
-    } else {
-      console.log("ℹ️ No tool calls generated by AGENT LLM");
-      console.log("🔍 This might be because:");
-      console.log("  - The LLM didn't understand the prompt");
-      console.log("  - The tools aren't properly bound");
-      console.log("  - The response format is unexpected");
-    }
-
-    // If no intro text was generated but we have cards, generate a fallback intro
-    if (!introText.trim() && cards.length > 0) {
-      console.log("🔧 No intro text generated, creating fallback intro...");
-      introText = await generateBriefIntro(userMessage);
-      console.log("📝 Fallback intro text:", introText);
     }
 
     console.log(
       `🎴 AGENT Dynamic response complete. Generated ${cards.length} cards`
     );
 
-    if (!introText && cards.length === 0) {
-      console.log("⚠️ No intro text or cards generated - returning null");
-      return null;
-    }
-
     return {
       introText: introText.trim(),
       cards,
     };
   } catch (error) {
-    console.error("❌ Error generating agent dynamic response:", error);
-    console.error(
-      "❌ Error details:",
-      error instanceof Error ? error.message : String(error)
-    );
-    console.error(
-      "❌ Error stack:",
-      error instanceof Error ? error.stack : "No stack trace available"
-    );
+    if (error instanceof Error) {
+      console.error(
+        "❌ Error generating AGENT dynamic response:",
+        error.message
+      );
+      console.error("Stack trace:", error.stack);
+    } else {
+      console.error(
+        "❌ Unknown error generating AGENT dynamic response:",
+        error
+      );
+    }
     return null;
   }
 };
