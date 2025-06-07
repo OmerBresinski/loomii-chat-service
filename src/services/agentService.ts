@@ -23,6 +23,138 @@ import { z } from "zod";
 // Load environment variables
 dotenv.config();
 
+// Define tools for the LLM to generate cards
+const generateActionListTool = tool(
+  async ({ title, items, description }) => {
+    console.log("🔧 AGENT TOOL CALLED: generate_action_list", {
+      title,
+      itemsCount: items?.length,
+      description,
+    });
+    return {
+      type: "action-list",
+      title,
+      description,
+      items,
+    };
+  },
+  {
+    name: "generate_action_list",
+    description:
+      "Generate an action list card when the user asks for recommendations, steps, or things to do",
+    schema: z.object({
+      title: z.string().describe("Title for the action list"),
+      description: z.string().optional().describe("Optional description"),
+      items: z
+        .array(
+          z.object({
+            title: z.string(),
+            description: z.string().optional(),
+          })
+        )
+        .describe("List of actionable items"),
+    }),
+  }
+);
+
+const generateQuickWinsTool = tool(
+  async ({ title, items, description }) => {
+    console.log("🔧 AGENT TOOL CALLED: generate_quick_wins", {
+      title,
+      itemsCount: items?.length,
+      description,
+    });
+    return {
+      type: "quick-wins",
+      title,
+      description,
+      items,
+    };
+  },
+  {
+    name: "generate_quick_wins",
+    description:
+      "Generate a quick wins card when the user asks for immediate actions or things to do today/soon",
+    schema: z.object({
+      title: z.string().describe("Title for the quick wins"),
+      description: z.string().optional().describe("Optional description"),
+      items: z
+        .array(
+          z.object({
+            title: z.string(),
+            description: z.string(),
+            value: z.number().min(1).max(10).describe("Value score 1-10"),
+            effort: z.number().min(1).max(10).describe("Effort score 1-10"),
+            ratio: z.number().describe("Value-to-effort ratio"),
+          })
+        )
+        .describe("List of quick win items with value/effort scores"),
+    }),
+  }
+);
+
+const generateCompetitiveAnalysisTool = tool(
+  async ({ title, items, description }) => {
+    console.log("🔧 AGENT TOOL CALLED: generate_competitive_analysis", {
+      title,
+      itemsCount: items?.length,
+      description,
+    });
+    return {
+      type: "competitive-analysis",
+      title,
+      description,
+      items,
+    };
+  },
+  {
+    name: "generate_competitive_analysis",
+    description:
+      "Generate a competitive analysis card when the user asks about competitors or competitive positioning",
+    schema: z.object({
+      title: z.string().describe("Title for the competitive analysis"),
+      description: z.string().optional().describe("Optional description"),
+      items: z
+        .array(
+          z.object({
+            title: z.string(),
+            description: z.string(),
+            impact: z
+              .enum(["high", "medium", "low"])
+              .describe("Expected impact level"),
+            timeframe: z.string().describe("Implementation timeframe"),
+          })
+        )
+        .describe("List of competitive response items"),
+    }),
+  }
+);
+
+const generateAssistanceTool = tool(
+  async ({ title, suggestions }) => {
+    console.log("🔧 AGENT TOOL CALLED: generate_assistance_suggestions", {
+      title,
+      suggestionsCount: suggestions?.length,
+    });
+    return {
+      type: "assistance-suggestions",
+      title,
+      suggestions,
+    };
+  },
+  {
+    name: "generate_assistance_suggestions",
+    description:
+      "Generate assistance suggestions to help continue the conversation",
+    schema: z.object({
+      title: z.string().describe("Title for the assistance suggestions"),
+      suggestions: z
+        .array(z.string())
+        .describe("List of follow-up questions or suggestions"),
+    }),
+  }
+);
+
 // Initialize OpenAI ChatGPT for the agent
 const createAgentLLM = (): ChatOpenAI => {
   return new ChatOpenAI({
@@ -361,54 +493,50 @@ const streamAgentBriefIntroWithCards = async (
     searchResults
   );
 
-  if (generatedResponse && generatedResponse.introText) {
+  if (
+    generatedResponse &&
+    generatedResponse.introText &&
+    generatedResponse.cards &&
+    generatedResponse.cards.length > 0
+  ) {
     // Stream the LLM-generated intro text
     controller.enqueue(generatedResponse.introText);
 
     // Small delay for natural feel
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    if (generatedResponse.cards && generatedResponse.cards.length > 0) {
-      // Send the cards as the main content
-      const metadata = {
-        timestamp: new Date().toISOString(),
-        cards: generatedResponse.cards,
-        replaceText: false, // Cards supplement the intro
-      };
+    // Send the cards as the main content
+    const metadata = {
+      timestamp: new Date().toISOString(),
+      cards: generatedResponse.cards,
+      replaceText: false, // Cards supplement the intro
+    };
 
-      // Add the intro + cards indication to history
-      history.push(userMessage);
-      const aiMessage = new AIMessage(
-        generatedResponse.introText +
-          " [Interactive recommendations provided based on market intelligence]"
-      );
-      history.push(aiMessage);
-      updateConversationHistory(conversationId, history);
-
-      controller.enqueue(
-        `\n\n__CARDS_REPLACE_CONTENT__${JSON.stringify(
-          metadata
-        )}__END_CARDS_REPLACE_CONTENT__`
-      );
-    } else {
-      // Fallback to regular agent response if no cards generated
-      await streamRegularAgentResponse(
-        controller,
-        message,
-        history,
-        conversationId,
-        userMessage
-      );
-    }
-  } else {
-    // Fallback to regular agent response if no intro generated
-    await streamRegularAgentResponse(
-      controller,
-      message,
-      history,
-      conversationId,
-      userMessage
+    // Add the intro + cards indication to history
+    history.push(userMessage);
+    const aiMessage = new AIMessage(
+      generatedResponse.introText +
+        " [Interactive recommendations provided based on market intelligence]"
     );
+    history.push(aiMessage);
+    updateConversationHistory(conversationId, history);
+
+    controller.enqueue(
+      `\n\n__CARDS_REPLACE_CONTENT__${JSON.stringify(
+        metadata
+      )}__END_CARDS_REPLACE_CONTENT__`
+    );
+  } else {
+    // If no intro or cards generated, provide a simple fallback message
+    const fallbackMessage =
+      "I understand your request. Let me provide some insights based on our market intelligence.";
+    controller.enqueue(fallbackMessage);
+
+    // Add to history
+    history.push(userMessage);
+    const aiMessage = new AIMessage(fallbackMessage);
+    history.push(aiMessage);
+    updateConversationHistory(conversationId, history);
   }
 };
 
@@ -629,139 +757,6 @@ export const searchOrionData = async (
   }
 };
 
-// Define the same tools for agent service
-const generateActionListTool = tool(
-  async ({ title, items, description }) => {
-    console.log("🔧 AGENT TOOL CALLED: generate_action_list", {
-      title,
-      itemsCount: items?.length,
-      description,
-    });
-    return {
-      type: "action-list",
-      title,
-      description,
-      items,
-    };
-  },
-  {
-    name: "generate_action_list",
-    description:
-      "Generate an action list card when the user asks for recommendations, steps, or things to do",
-    schema: z.object({
-      title: z.string().describe("Title for the action list"),
-      description: z.string().nullable().describe("Optional description"),
-      items: z
-        .array(
-          z.object({
-            title: z.string(),
-            description: z.string().nullable(),
-            priority: z.enum(["high", "medium", "low"]),
-            category: z.string(),
-          })
-        )
-        .describe("List of actionable items"),
-    }),
-  }
-);
-
-const generateQuickWinsTool = tool(
-  async ({ title, items, description }) => {
-    console.log("🔧 AGENT TOOL CALLED: generate_quick_wins", {
-      title,
-      itemsCount: items?.length,
-      description,
-    });
-    return {
-      type: "quick-wins",
-      title,
-      description,
-      items,
-    };
-  },
-  {
-    name: "generate_quick_wins",
-    description:
-      "Generate quick wins card when user asks for immediate actions, things to do today/this week, or low-effort high-impact opportunities",
-    schema: z.object({
-      title: z.string().describe("Title for quick wins"),
-      description: z.string().nullable().describe("Optional description"),
-      items: z
-        .array(
-          z.object({
-            title: z.string(),
-            description: z.string().nullable(),
-            value: z.number().nullable(),
-            effort: z.number().nullable(),
-            ratio: z.number().nullable(),
-          })
-        )
-        .describe("List of quick win items"),
-    }),
-  }
-);
-
-const generateCompetitiveAnalysisTool = tool(
-  async ({ title, items, description }) => {
-    console.log("🔧 AGENT TOOL CALLED: generate_competitive_analysis", {
-      title,
-      itemsCount: items?.length,
-      description,
-    });
-    return {
-      type: "competitive-analysis",
-      title,
-      description,
-      items,
-    };
-  },
-  {
-    name: "generate_competitive_analysis",
-    description:
-      "Generate competitive analysis card when user asks about competitors, competitive moves, market positioning, or how to respond to competitor actions",
-    schema: z.object({
-      title: z.string().describe("Title for competitive analysis"),
-      description: z.string().nullable().describe("Optional description"),
-      items: z
-        .array(
-          z.object({
-            title: z.string(),
-            description: z.string().nullable(),
-            competitor: z.string().nullable(),
-            advantage: z.string().nullable(),
-            priority: z.enum(["high", "medium", "low"]),
-          })
-        )
-        .describe("List of competitive insights"),
-    }),
-  }
-);
-
-const generateAssistanceTool = tool(
-  async ({ title, suggestions }) => {
-    console.log("🔧 AGENT TOOL CALLED: generate_assistance_suggestions", {
-      title,
-      suggestionsCount: suggestions?.length,
-    });
-    return {
-      type: "assistance-suggestions",
-      title,
-      suggestions,
-    };
-  },
-  {
-    name: "generate_assistance_suggestions",
-    description:
-      "Generate follow-up assistance suggestions to help the user continue the conversation or explore related topics",
-    schema: z.object({
-      title: z.string().describe("Title for assistance suggestions"),
-      suggestions: z
-        .array(z.string())
-        .describe("List of suggested follow-up questions or actions"),
-    }),
-  }
-);
-
 // Create LLM with tools for card generation
 const createLLMWithTools = () => {
   const llm = new ChatOpenAI({
@@ -924,6 +919,11 @@ Focus on cybersecurity market intelligence context. Extract value/effort scores,
 Generate a brief, natural intro and then use the appropriate tools to create detailed cards based on the market intelligence data.`;
 
     console.log("🔧 Invoking AGENT LLM for dynamic response generation...");
+    console.log(
+      "📋 Prompt being sent:",
+      dynamicPrompt.substring(0, 200) + "..."
+    );
+
     const response = await llmWithTools.invoke([
       new HumanMessage(dynamicPrompt),
     ]);
@@ -939,6 +939,11 @@ Generate a brief, natural intro and then use the appropriate tools to create det
       "📝 Generated intro text:",
       introText.substring(0, 100) + "..."
     );
+    console.log("🔍 Full response content:", response.content);
+    console.log(
+      "🛠️ Tool calls details:",
+      JSON.stringify(response.tool_calls, null, 2)
+    );
 
     const cards: any[] = [];
 
@@ -946,6 +951,7 @@ Generate a brief, natural intro and then use the appropriate tools to create det
       console.log("🛠️ Processing AGENT tool calls...");
       for (const toolCall of response.tool_calls) {
         console.log(`🔧 Processing AGENT tool: ${toolCall.name}`);
+        console.log(`🔧 Tool args:`, JSON.stringify(toolCall.args, null, 2));
         try {
           let result;
           switch (toolCall.name) {
@@ -970,6 +976,7 @@ Generate a brief, natural intro and then use the appropriate tools to create det
           }
           if (result) {
             console.log(`✅ AGENT Tool ${toolCall.name} executed successfully`);
+            console.log(`📋 Tool result:`, JSON.stringify(result, null, 2));
             cards.push(result);
           }
         } catch (error) {
@@ -979,11 +986,22 @@ Generate a brief, natural intro and then use the appropriate tools to create det
           );
         }
       }
+    } else {
+      console.log("ℹ️ No tool calls generated by AGENT LLM");
+      console.log("🔍 This might be because:");
+      console.log("  - The LLM didn't understand the prompt");
+      console.log("  - The tools aren't properly bound");
+      console.log("  - The response format is unexpected");
     }
 
     console.log(
       `🎴 AGENT Dynamic response complete. Generated ${cards.length} cards`
     );
+
+    if (!introText && cards.length === 0) {
+      console.log("⚠️ No intro text or cards generated - returning null");
+      return null;
+    }
 
     return {
       introText: introText.trim(),
@@ -991,6 +1009,14 @@ Generate a brief, natural intro and then use the appropriate tools to create det
     };
   } catch (error) {
     console.error("❌ Error generating agent dynamic response:", error);
+    console.error(
+      "❌ Error details:",
+      error instanceof Error ? error.message : String(error)
+    );
+    console.error(
+      "❌ Error stack:",
+      error instanceof Error ? error.stack : "No stack trace available"
+    );
     return null;
   }
 };
