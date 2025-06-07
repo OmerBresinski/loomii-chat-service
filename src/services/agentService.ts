@@ -589,22 +589,20 @@ Generate only the intro text, nothing else.`;
 
     // Stream metadata immediately
     await streamMetadataInChunks(controller, metadata);
+
+    console.log("✅ Brief intro + cards response completed successfully");
   } else {
-    // If no cards generated, provide a simple fallback message
-    const fallbackMessage =
-      " Let me provide some insights based on our market intelligence.";
-
-    // Stream fallback message character by character
-    for (let i = 0; i < fallbackMessage.length; i++) {
-      controller.enqueue(fallbackMessage[i]);
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    }
-
-    // Add to history
-    history.push(userMessage);
-    const aiMessage = new AIMessage(introText + fallbackMessage);
-    history.push(aiMessage);
-    updateConversationHistory(conversationId, history);
+    // If no cards generated, fall back to regular agent response
+    console.log(
+      "⚠️ No cards generated, falling back to regular agent response"
+    );
+    await streamRegularAgentResponse(
+      controller,
+      message,
+      history,
+      conversationId,
+      userMessage
+    );
   }
 };
 
