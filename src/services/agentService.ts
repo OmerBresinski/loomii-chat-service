@@ -944,7 +944,7 @@ const createLLMWithTools = () => {
   });
 
   return llm.bindTools([
-    generateActionListTool,
+    // generateActionListTool, // Disabled for now
     generateQuickWinsTool,
     generateCompetitiveAnalysisTool,
     generateAssistanceTool,
@@ -984,10 +984,9 @@ The assistant used vector search and found ${
 
 Generate interactive cards based STRICTLY on the provided vector store data. Use the available tools to generate appropriate cards when:
 
-1. User asks for recommendations, steps, or actionable advice → use generate_action_list (extract from the data above)
-2. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins (use ONLY the actions from the data above with their exact value/effort scores)
-3. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis (extract from the data above)
-4. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
+1. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins (use ONLY the actions from the data above with their exact value/effort scores)
+2. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis (extract from the data above)
+3. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
 
 CRITICAL REQUIREMENTS:
 - For quick wins: Use ONLY the actions present in the vector store data above
@@ -1017,11 +1016,11 @@ Focus on market intelligence context. Extract value/effort scores, competitive i
         try {
           let result;
           switch (toolCall.name) {
-            case "generate_action_list":
-              result = await generateActionListTool.invoke(
-                toolCall.args as any
-              );
-              break;
+            // case "generate_action_list": // Disabled
+            //   result = await generateActionListTool.invoke(
+            //     toolCall.args as any
+            //   );
+            //   break;
             case "generate_quick_wins":
               result = await generateQuickWinsTool.invoke(toolCall.args as any);
               break;
@@ -1088,13 +1087,7 @@ Generate a brief, natural introductory response (1-2 sentences) that:
 - Does NOT repeat information that will be in the cards themselves
 - Focuses on competitive intelligence context
 
-Examples of good intros:
-- "Based on our market intelligence, here are some strategic recommendations:"
-- "I've analyzed the competitive landscape and identified several opportunities:"
-- "Drawing from our market data, here are actionable insights:"
-- "Our intelligence shows several strategic moves that can enhance your position:"
-
-Generate only the intro text, nothing else.`;
+Generate only the intro text, nothing else. Use a friendly tone with a relaxed, conversational style.`;
 
     const response = await llm.invoke([new HumanMessage(introPrompt)]);
     const introText =
@@ -1152,10 +1145,9 @@ Guidelines for the intro:
   * "Drawing from market data, here are actionable insights:"
 
 Use the tools to generate cards when:
-1. User asks for recommendations, steps, or actionable advice → use generate_action_list (extract from the data above)
-2. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins (use ONLY the actions from the data above with their exact value/effort scores)
-3. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis (extract from the data above)
-4. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
+1. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins (use ONLY the actions from the data above with their exact value/effort scores)
+2. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis (extract from the data above)
+3. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
 
 CRITICAL REQUIREMENTS:
 - For quick wins: Use ONLY the actions present in the vector store data above
@@ -1203,11 +1195,11 @@ Generate a brief, natural intro and then use the appropriate tools to create det
         try {
           let result;
           switch (toolCall.name) {
-            case "generate_action_list":
-              result = await generateActionListTool.invoke(
-                toolCall.args as any
-              );
-              break;
+            // case "generate_action_list": // Disabled
+            //   result = await generateActionListTool.invoke(
+            //     toolCall.args as any
+            //   );
+            //   break;
             case "generate_quick_wins":
               result = await generateQuickWinsTool.invoke(toolCall.args as any);
               break;

@@ -171,7 +171,7 @@ const createLLMWithTools = () => {
   });
 
   return llm.bindTools([
-    generateActionListTool,
+    // generateActionListTool, // Disabled for now
     generateQuickWinsTool,
     generateCompetitiveAnalysisTool,
     generateAssistanceTool,
@@ -568,10 +568,9 @@ Assistant: ${aiResponse}
 
 Analyze if the user's request and the assistant's response would benefit from interactive cards. Use the available tools to generate appropriate cards when:
 
-1. User asks for recommendations, steps, or actionable advice → use generate_action_list
-2. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins  
-3. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis
-4. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
+1. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins  
+2. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis
+3. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
 
 Only generate cards that add value to the conversation. If the response is just informational without actionable elements, you may skip action cards but still provide assistance suggestions.`;
 
@@ -594,11 +593,11 @@ Only generate cards that add value to the conversation. If the response is just 
         try {
           let result;
           switch (toolCall.name) {
-            case "generate_action_list":
-              result = await generateActionListTool.invoke(
-                toolCall.args as any
-              );
-              break;
+            // case "generate_action_list": // Disabled
+            //   result = await generateActionListTool.invoke(
+            //     toolCall.args as any
+            //   );
+            //   break;
             case "generate_quick_wins":
               result = await generateQuickWinsTool.invoke(toolCall.args as any);
               break;
@@ -702,10 +701,9 @@ Guidelines for the intro:
   * "Absolutely! I've identified several opportunities for you:"
 
 Use the tools to generate cards when:
-1. User asks for recommendations, steps, or actionable advice → use generate_action_list
-2. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins  
-3. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis
-4. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
+1. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins  
+2. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis
+3. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
 
 Generate a brief, natural intro and then use the appropriate tools to create detailed cards.`;
 
@@ -736,11 +734,11 @@ Generate a brief, natural intro and then use the appropriate tools to create det
         try {
           let result;
           switch (toolCall.name) {
-            case "generate_action_list":
-              result = await generateActionListTool.invoke(
-                toolCall.args as any
-              );
-              break;
+            // case "generate_action_list": // Disabled
+            //   result = await generateActionListTool.invoke(
+            //     toolCall.args as any
+            //   );
+            //   break;
             case "generate_quick_wins":
               result = await generateQuickWinsTool.invoke(toolCall.args as any);
               break;
