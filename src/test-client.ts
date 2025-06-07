@@ -210,6 +210,7 @@ async function testChat() {
       }
 
       let fullResponse = "";
+      let cardsReceived: any[] = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -219,8 +220,48 @@ async function testChat() {
         }
 
         const chunk = decoder.decode(value, { stream: true });
+
+        // Check if this chunk contains metadata
+        if (chunk.startsWith("data: ") && chunk.includes('"metadata"')) {
+          try {
+            const dataLine = chunk.replace("data: ", "").trim();
+            const parsed = JSON.parse(dataLine);
+            if (parsed.metadata && parsed.metadata.cards) {
+              cardsReceived.push(...parsed.metadata.cards);
+            }
+          } catch (e) {
+            // Not JSON metadata, continue with regular output
+          }
+        }
+
         process.stdout.write(chunk);
         fullResponse += chunk;
+      }
+
+      // Display cards if any were received
+      if (cardsReceived.length > 0) {
+        console.log("\n\n🎴 Cards Generated:");
+        cardsReceived.forEach((card, index) => {
+          console.log(`\n--- Card ${index + 1}: ${card.type} ---`);
+          console.log(`Title: ${card.title}`);
+          if (card.items) {
+            console.log("Items:");
+            card.items.forEach((item: any, i: number) => {
+              console.log(`  ${i + 1}. ${item.title || item.text}`);
+              if (item.value && item.effort) {
+                console.log(
+                  `     Value: ${item.value}/10, Effort: ${item.effort}/10`
+                );
+              }
+            });
+          }
+          if (card.suggestions) {
+            console.log("Suggestions:");
+            card.suggestions.forEach((suggestion: string, i: number) => {
+              console.log(`  ${i + 1}. ${suggestion}`);
+            });
+          }
+        });
       }
 
       console.log("\n");

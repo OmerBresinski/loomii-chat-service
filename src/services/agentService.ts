@@ -17,6 +17,8 @@ import {
   getOrCreateConversationHistory,
   updateConversationHistory,
 } from "./conversationHistory";
+import { tool } from "@langchain/core/tools";
+import { z } from "zod";
 
 // Load environment variables
 dotenv.config();
@@ -331,11 +333,6 @@ export const streamAgentResponse = async (
               const contentStr =
                 typeof content === "string" ? content : JSON.stringify(content);
               fullResponse += contentStr;
-              console.log(
-                `📤 Agent pushing chunk: "${contentStr.substring(0, 20)}..." (${
-                  contentStr.length
-                } chars)`
-              );
               controller.enqueue(contentStr);
 
               // Small delay to ensure chunks are sent individually
@@ -351,6 +348,18 @@ export const streamAgentResponse = async (
           // Update conversation history
           if (conversationId) {
             updateConversationHistory(conversationId, history);
+          }
+
+          // Send structured metadata at the end
+          const metadata = await generateAgentCardsWithLLM(
+            message,
+            fullResponse,
+            searchResults
+          );
+          if (metadata) {
+            controller.enqueue(
+              `\n\n__METADATA__${JSON.stringify(metadata)}__END_METADATA__`
+            );
           }
 
           console.log("🏁 Agent stream ending");
@@ -469,5 +478,256 @@ export const searchOrionData = async (
   } catch (error) {
     console.error("❌ Error in searchOrionData:", error);
     throw error;
+  }
+};
+
+// Define the same tools for agent service
+const generateActionListTool = tool(
+  async ({ title, items, description }) => {
+    console.log("🔧 AGENT TOOL CALLED: generate_action_list", {
+      title,
+      itemsCount: items?.length,
+      description,
+    });
+    return {
+      type: "action-list",
+      title,
+      description,
+      items,
+    };
+  },
+  {
+    name: "generate_action_list",
+    description:
+      "Generate an action list card when the user asks for recommendations, steps, or things to do",
+    schema: z.object({
+      title: z.string().describe("Title for the action list"),
+      description: z.string().nullable().describe("Optional description"),
+      items: z
+        .array(
+          z.object({
+            title: z.string(),
+            description: z.string().nullable(),
+            priority: z.enum(["high", "medium", "low"]),
+            category: z.string(),
+          })
+        )
+        .describe("List of actionable items"),
+    }),
+  }
+);
+
+const generateQuickWinsTool = tool(
+  async ({ title, items, description }) => {
+    console.log("🔧 AGENT TOOL CALLED: generate_quick_wins", {
+      title,
+      itemsCount: items?.length,
+      description,
+    });
+    return {
+      type: "quick-wins",
+      title,
+      description,
+      items,
+    };
+  },
+  {
+    name: "generate_quick_wins",
+    description:
+      "Generate quick wins card when user asks for immediate actions, things to do today/this week, or low-effort high-impact opportunities",
+    schema: z.object({
+      title: z.string().describe("Title for quick wins"),
+      description: z.string().nullable().describe("Optional description"),
+      items: z
+        .array(
+          z.object({
+            title: z.string(),
+            description: z.string().nullable(),
+            value: z.number().nullable(),
+            effort: z.number().nullable(),
+            ratio: z.number().nullable(),
+          })
+        )
+        .describe("List of quick win items"),
+    }),
+  }
+);
+
+const generateCompetitiveAnalysisTool = tool(
+  async ({ title, items, description }) => {
+    console.log("🔧 AGENT TOOL CALLED: generate_competitive_analysis", {
+      title,
+      itemsCount: items?.length,
+      description,
+    });
+    return {
+      type: "competitive-analysis",
+      title,
+      description,
+      items,
+    };
+  },
+  {
+    name: "generate_competitive_analysis",
+    description:
+      "Generate competitive analysis card when user asks about competitors, competitive moves, market positioning, or how to respond to competitor actions",
+    schema: z.object({
+      title: z.string().describe("Title for competitive analysis"),
+      description: z.string().nullable().describe("Optional description"),
+      items: z
+        .array(
+          z.object({
+            title: z.string(),
+            description: z.string().nullable(),
+            competitor: z.string().nullable(),
+            advantage: z.string().nullable(),
+            priority: z.enum(["high", "medium", "low"]),
+          })
+        )
+        .describe("List of competitive insights"),
+    }),
+  }
+);
+
+const generateAssistanceTool = tool(
+  async ({ title, suggestions }) => {
+    console.log("🔧 AGENT TOOL CALLED: generate_assistance_suggestions", {
+      title,
+      suggestionsCount: suggestions?.length,
+    });
+    return {
+      type: "assistance-suggestions",
+      title,
+      suggestions,
+    };
+  },
+  {
+    name: "generate_assistance_suggestions",
+    description:
+      "Generate follow-up assistance suggestions to help the user continue the conversation or explore related topics",
+    schema: z.object({
+      title: z.string().describe("Title for assistance suggestions"),
+      suggestions: z
+        .array(z.string())
+        .describe("List of suggested follow-up questions or actions"),
+    }),
+  }
+);
+
+// Create LLM with tools for card generation
+const createLLMWithTools = () => {
+  const llm = new ChatOpenAI({
+    modelName: "gpt-4.1-mini",
+    temperature: 0.2,
+    streaming: false,
+    openAIApiKey: process.env.OPENAI_API_KEY,
+  });
+
+  return llm.bindTools([
+    generateActionListTool,
+    generateQuickWinsTool,
+    generateCompetitiveAnalysisTool,
+    generateAssistanceTool,
+  ]);
+};
+
+// Generate cards using LLM with tools for agent responses
+const generateAgentCardsWithLLM = async (
+  userMessage: string,
+  aiResponse: string,
+  searchResults: any
+): Promise<any> => {
+  try {
+    console.log("🎴 Starting AGENT card generation process...");
+    console.log("📝 User message:", userMessage.substring(0, 100) + "...");
+    console.log("🤖 AI response length:", aiResponse.length);
+    console.log("🔍 Search results count:", searchResults?.length || 0);
+
+    const llmWithTools = createLLMWithTools();
+
+    const cardGenerationPrompt = `Based on this cybersecurity market intelligence conversation:
+
+User: ${userMessage}
+Assistant: ${aiResponse}
+
+The assistant used vector search and found ${
+      searchResults?.length || 0
+    } relevant insights from the cybersecurity market data.
+
+Analyze if this conversation would benefit from interactive cards. Use the available tools to generate appropriate cards when:
+
+1. User asks for recommendations, steps, or actionable advice → use generate_action_list
+2. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins  
+3. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis
+4. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
+
+Focus on cybersecurity market intelligence context. Extract value/effort scores, competitive insights, and actionable recommendations from the response.`;
+
+    console.log("🔧 Invoking AGENT LLM with tools for card generation...");
+    const response = await llmWithTools.invoke([
+      new HumanMessage(cardGenerationPrompt),
+    ]);
+
+    console.log(
+      "📊 AGENT LLM response received. Tool calls:",
+      response.tool_calls?.length || 0
+    );
+
+    const cards: any[] = [];
+
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      console.log("🛠️ Processing AGENT tool calls...");
+      for (const toolCall of response.tool_calls) {
+        console.log(`🔧 Processing AGENT tool: ${toolCall.name}`);
+        try {
+          let result;
+          switch (toolCall.name) {
+            case "generate_action_list":
+              result = await generateActionListTool.invoke(
+                toolCall.args as any
+              );
+              break;
+            case "generate_quick_wins":
+              result = await generateQuickWinsTool.invoke(toolCall.args as any);
+              break;
+            case "generate_competitive_analysis":
+              result = await generateCompetitiveAnalysisTool.invoke(
+                toolCall.args as any
+              );
+              break;
+            case "generate_assistance_suggestions":
+              result = await generateAssistanceTool.invoke(
+                toolCall.args as any
+              );
+              break;
+          }
+          if (result) {
+            console.log(`✅ AGENT Tool ${toolCall.name} executed successfully`);
+            cards.push(result);
+          }
+        } catch (error) {
+          console.error(
+            `❌ Error executing AGENT tool ${toolCall.name}:`,
+            error
+          );
+        }
+      }
+    } else {
+      console.log("ℹ️ No tool calls generated by AGENT LLM");
+    }
+
+    console.log(
+      `🎴 AGENT Card generation complete. Generated ${cards.length} cards`
+    );
+
+    return cards.length > 0
+      ? {
+          timestamp: new Date().toISOString(),
+          cards,
+        }
+      : null;
+  } catch (error) {
+    console.error("❌ Error generating agent cards:", error);
+    return null;
   }
 };

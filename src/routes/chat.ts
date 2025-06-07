@@ -3,7 +3,6 @@ import {
   streamChatCompletion,
   getConversationHistory,
   streamChatWithAgent,
-  streamRegularChatOnly,
   analyzeChatMode,
 } from "../services/chatService";
 import {
@@ -41,7 +40,7 @@ chatRouter.post("/chat", async (req: Request, res: Response) => {
     if (mode === "agent") {
       stream = await streamChatWithAgent(message, conversationId);
     } else if (mode === "regular") {
-      stream = await streamRegularChatOnly(message, conversationId);
+      stream = await streamChatCompletion(message, conversationId, false); // Force regular mode
     } else {
       // Use automatic detection (default behavior)
       stream = await streamChatCompletion(message, conversationId);

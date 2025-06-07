@@ -8,6 +8,8 @@ import {
   getOrCreateConversationHistory,
   updateConversationHistory,
 } from "./conversationHistory";
+import { tool } from "@langchain/core/tools";
+import { z } from "zod";
 
 // Load environment variables
 dotenv.config();
@@ -15,7 +17,140 @@ dotenv.config();
 // Global conversation histories storage
 // const conversationHistories = new Map<string, BaseMessage[]>();
 
-// Initialize OpenAI ChatGPT 4o mini
+// Define tools for the LLM to generate cards
+const generateActionListTool = tool(
+  async ({ title, items, description }) => {
+    console.log("🔧 TOOL CALLED: generate_action_list", {
+      title,
+      itemsCount: items?.length,
+      description,
+    });
+    return {
+      type: "action-list",
+      title,
+      description,
+      items,
+    };
+  },
+  {
+    name: "generate_action_list",
+    description:
+      "Generate an action list card when the user asks for recommendations, steps, or things to do",
+    schema: z.object({
+      title: z.string().describe("Title for the action list"),
+      description: z.string().optional().describe("Optional description"),
+      items: z
+        .array(
+          z.object({
+            title: z.string(),
+            description: z.string().optional(),
+          })
+        )
+        .describe("List of actionable items"),
+    }),
+  }
+);
+
+const generateQuickWinsTool = tool(
+  async ({ title, items, description }) => {
+    console.log("🔧 TOOL CALLED: generate_quick_wins", {
+      title,
+      itemsCount: items?.length,
+      description,
+    });
+    return {
+      type: "quick-wins",
+      title,
+      description,
+      items,
+    };
+  },
+  {
+    name: "generate_quick_wins",
+    description:
+      "Generate quick wins card when user asks for immediate actions, things to do today/this week, or low-effort high-impact opportunities",
+    schema: z.object({
+      title: z.string().describe("Title for quick wins"),
+      description: z.string().optional().describe("Optional description"),
+      items: z
+        .array(
+          z.object({
+            title: z.string(),
+            description: z.string().optional(),
+            value: z.number().optional().describe("Value score 1-10"),
+            effort: z.number().optional().describe("Effort score 1-10"),
+            ratio: z.number().optional().describe("Value to effort ratio"),
+          })
+        )
+        .describe("List of quick win items"),
+    }),
+  }
+);
+
+const generateCompetitiveAnalysisTool = tool(
+  async ({ title, items, description }) => {
+    console.log("🔧 TOOL CALLED: generate_competitive_analysis", {
+      title,
+      itemsCount: items?.length,
+      description,
+    });
+    return {
+      type: "competitive-analysis",
+      title,
+      description,
+      items,
+    };
+  },
+  {
+    name: "generate_competitive_analysis",
+    description:
+      "Generate competitive analysis card when user asks about competitors, competitive moves, market positioning, or how to respond to competitor actions",
+    schema: z.object({
+      title: z.string().describe("Title for competitive analysis"),
+      description: z.string().optional().describe("Optional description"),
+      items: z
+        .array(
+          z.object({
+            title: z.string(),
+            description: z.string().optional(),
+            competitor: z.string().optional().describe("Competitor name"),
+            advantage: z
+              .string()
+              .optional()
+              .describe("Competitive advantage or insight"),
+          })
+        )
+        .describe("List of competitive insights"),
+    }),
+  }
+);
+
+const generateAssistanceTool = tool(
+  async ({ title, suggestions }) => {
+    console.log("🔧 TOOL CALLED: generate_assistance_suggestions", {
+      title,
+      suggestionsCount: suggestions?.length,
+    });
+    return {
+      type: "assistance-suggestions",
+      title,
+      suggestions,
+    };
+  },
+  {
+    name: "generate_assistance_suggestions",
+    description:
+      "Generate follow-up assistance suggestions to help the user continue the conversation or explore related topics",
+    schema: z.object({
+      title: z.string().describe("Title for assistance suggestions"),
+      suggestions: z
+        .array(z.string())
+        .describe("List of suggested follow-up questions or actions"),
+    }),
+  }
+);
+
+// Create regular LLM for streaming
 const createLLM = (): ChatOpenAI => {
   return new ChatOpenAI({
     modelName: "gpt-4.1-mini",
@@ -23,6 +158,23 @@ const createLLM = (): ChatOpenAI => {
     streaming: true,
     openAIApiKey: process.env.OPENAI_API_KEY,
   });
+};
+
+// Create LLM with tools for card generation
+const createLLMWithTools = () => {
+  const llm = new ChatOpenAI({
+    modelName: "gpt-4.1-mini",
+    temperature: 0.2,
+    streaming: false, // Tools work better without streaming
+    openAIApiKey: process.env.OPENAI_API_KEY,
+  });
+
+  return llm.bindTools([
+    generateActionListTool,
+    generateQuickWinsTool,
+    generateCompetitiveAnalysisTool,
+    generateAssistanceTool,
+  ]);
 };
 
 // Detect if a query would benefit from agent/vector search
@@ -82,11 +234,11 @@ export const streamChatCompletion = async (
   if (useAgent) {
     return streamChatWithAgent(message, conversationId);
   } else {
-    return streamRegularChatOnly(message, conversationId);
+    return streamRegularChat(message, conversationId);
   }
 };
 
-// Regular chat functionality (original implementation)
+// Regular chat functionality with intelligent card generation
 const streamRegularChat = async (
   message: string,
   conversationId: string = "default"
@@ -105,7 +257,7 @@ const streamRegularChat = async (
         try {
           let fullResponse = "";
 
-          // Initialize LLM
+          // Initialize regular LLM for streaming
           const llm = createLLM();
 
           // Get streaming response from LLM
@@ -113,22 +265,13 @@ const streamRegularChat = async (
 
           // Process the stream
           for await (const chunk of llmStream) {
-            const content = chunk.content;
-            if (content) {
+            if (chunk.content) {
               const contentStr =
-                typeof content === "string" ? content : JSON.stringify(content);
+                typeof chunk.content === "string"
+                  ? chunk.content
+                  : JSON.stringify(chunk.content);
               fullResponse += contentStr;
-
-              console.log(
-                `Streaming chunk: ${
-                  contentStr.length
-                } chars, content: ${contentStr.substring(0, 50)}...`
-              );
-
-              // Enqueue the chunk
-              controller.enqueue(new TextEncoder().encode(contentStr));
-
-              // Small delay to ensure chunks are sent individually
+              controller.enqueue(contentStr);
               await new Promise((resolve) => setTimeout(resolve, 10));
             }
           }
@@ -138,7 +281,23 @@ const streamRegularChat = async (
           history.push(aiMessage);
           updateConversationHistory(conversationId, history);
 
-          // Close the stream
+          // Generate cards using LLM with tools
+          const generatedCards = await generateCardsWithLLM(
+            message,
+            fullResponse
+          );
+
+          // Send generated cards as metadata
+          if (generatedCards.length > 0) {
+            const metadata = {
+              timestamp: new Date().toISOString(),
+              cards: generatedCards,
+            };
+            controller.enqueue(
+              `\n\n__METADATA__${JSON.stringify(metadata)}__END_METADATA__`
+            );
+          }
+
           controller.close();
         } catch (error) {
           console.error("Error in streaming:", error);
@@ -151,24 +310,96 @@ const streamRegularChat = async (
   return stream;
 };
 
+// Generate cards using LLM with tools
+const generateCardsWithLLM = async (
+  userMessage: string,
+  aiResponse: string
+): Promise<any[]> => {
+  try {
+    console.log("🎴 Starting card generation process...");
+    console.log("📝 User message:", userMessage.substring(0, 100) + "...");
+    console.log("🤖 AI response length:", aiResponse.length);
+
+    const llmWithTools = createLLMWithTools();
+
+    const cardGenerationPrompt = `Based on this conversation:
+
+User: ${userMessage}
+Assistant: ${aiResponse}
+
+Analyze if the user's request and the assistant's response would benefit from interactive cards. Use the available tools to generate appropriate cards when:
+
+1. User asks for recommendations, steps, or actionable advice → use generate_action_list
+2. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins  
+3. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis
+4. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
+
+Only generate cards that add value to the conversation. If the response is just informational without actionable elements, you may skip action cards but still provide assistance suggestions.`;
+
+    console.log("🔧 Invoking LLM with tools for card generation...");
+    const response = await llmWithTools.invoke([
+      new HumanMessage(cardGenerationPrompt),
+    ]);
+
+    console.log(
+      "📊 LLM response received. Tool calls:",
+      response.tool_calls?.length || 0
+    );
+
+    const cards: any[] = [];
+
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      console.log("🛠️ Processing tool calls...");
+      for (const toolCall of response.tool_calls) {
+        console.log(`🔧 Processing tool: ${toolCall.name}`);
+        try {
+          let result;
+          switch (toolCall.name) {
+            case "generate_action_list":
+              result = await generateActionListTool.invoke(
+                toolCall.args as any
+              );
+              break;
+            case "generate_quick_wins":
+              result = await generateQuickWinsTool.invoke(toolCall.args as any);
+              break;
+            case "generate_competitive_analysis":
+              result = await generateCompetitiveAnalysisTool.invoke(
+                toolCall.args as any
+              );
+              break;
+            case "generate_assistance_suggestions":
+              result = await generateAssistanceTool.invoke(
+                toolCall.args as any
+              );
+              break;
+          }
+          if (result) {
+            console.log(`✅ Tool ${toolCall.name} executed successfully`);
+            cards.push(result);
+          }
+        } catch (error) {
+          console.error(`❌ Error executing tool ${toolCall.name}:`, error);
+        }
+      }
+    } else {
+      console.log("ℹ️ No tool calls generated by LLM");
+    }
+
+    console.log(`🎴 Card generation complete. Generated ${cards.length} cards`);
+    return cards;
+  } catch (error) {
+    console.error("❌ Error generating cards:", error);
+    return [];
+  }
+};
+
 // Stream chat with explicit agent mode
 export const streamChatWithAgent = async (
   message: string,
   conversationId: string = "default"
 ): Promise<ReadableStream> => {
   return streamAgentResponse(message, conversationId);
-};
-
-// Stream regular chat without agent
-export const streamRegularChatOnly = async (
-  message: string,
-  conversationId: string = "default"
-): Promise<ReadableStream> => {
-  const history = getOrCreateConversationHistory(conversationId);
-
-  // ... existing code ...
-
-  return streamRegularChat(message, conversationId);
 };
 
 // Get conversation history

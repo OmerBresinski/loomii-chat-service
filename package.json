@@ -4,10 +4,20 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "chat": "ts-node src/test-client.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node dist/index.js",
+    "chat": "node dist/test-client.js",
+    "test:action-list": "node dist/test-client.js --chat-regular \"Give me 5 steps to improve our cybersecurity strategy\"",
+    "test:quick-wins": "node dist/test-client.js --chat-regular \"Give me 3 quick wins I can implement today\"",
+    "test:competitive-analysis": "node dist/test-client.js --chat-regular \"How do we compete against Zscaler in the market?\"",
+    "test:assistance-suggestions": "node dist/test-client.js --chat-regular \"What's the weather like today?\"",
+    "test:agent-action-list": "node dist/test-client.js --chat-agent \"Give me 5 strategic recommendations for cybersecurity\"",
+    "test:agent-quick-wins": "node dist/test-client.js --chat-agent \"Give me 3 quick wins I can implement today\"",
+    "test:agent-competitive": "node dist/test-client.js --chat-agent \"How should we compete with Zscaler?\"",
+    "test:agent-general": "node dist/test-client.js --chat-agent \"What are the latest cybersecurity trends?\"",
+    "test:all-tools": "npm run test:action-list && echo '\\n=== QUICK WINS ===' && npm run test:quick-wins && echo '\\n=== COMPETITIVE ANALYSIS ===' && npm run test:competitive-analysis && echo '\\n=== ASSISTANCE SUGGESTIONS ===' && npm run test:assistance-suggestions",
+    "test:all-agent-tools": "npm run test:agent-action-list && echo '\\n=== AGENT QUICK WINS ===' && npm run test:agent-quick-wins && echo '\\n=== AGENT COMPETITIVE ===' && npm run test:agent-competitive && echo '\\n=== AGENT GENERAL ===' && npm run test:agent-general",
+    "test:tools-complete": "echo '=== TESTING REGULAR CHAT TOOLS ===' && npm run test:all-tools && echo '\\n\\n=== TESTING AGENT TOOLS ===' && npm run test:all-agent-tools"
   },
   "keywords": [],
   "author": "bresinski",
