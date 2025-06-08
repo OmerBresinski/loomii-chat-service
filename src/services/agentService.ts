@@ -19,108 +19,9 @@ import {
 } from "./conversationHistory";
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { TavilySearchResults } from "@langchain/community/tools/tavily_search";
 
 // Load environment variables
 dotenv.config();
-
-// Interface for web search results
-interface WebSearchResult {
-  title: string;
-  content: string;
-  url: string;
-  source: string;
-}
-
-// Web search tool using Tavily for browsing the internet
-const webSearchTool = tool(
-  async ({ query, maxResults = 5 }) => {
-    console.log("🌐 WEB SEARCH TOOL CALLED:", { query, maxResults });
-
-    try {
-      // Initialize Tavily search
-      const tavilySearch = new TavilySearchResults({
-        maxResults: maxResults,
-        apiKey: process.env.TAVILY_API_KEY,
-      });
-
-      // Perform the search
-      const searchResults = await tavilySearch.invoke(query);
-
-      // Parse the results (Tavily returns a string, we need to parse it)
-      let results: WebSearchResult[] = [];
-
-      try {
-        // Try to parse as JSON first
-        const parsedResults = JSON.parse(searchResults);
-        if (Array.isArray(parsedResults)) {
-          results = parsedResults.map((item: any) => ({
-            title: item.title || "Web Search Result",
-            content: item.content || item.snippet || "",
-            url: item.url || "",
-            source: "Tavily",
-          }));
-        }
-      } catch (parseError) {
-        // If parsing fails, treat as plain text and create a single result
-        results = [
-          {
-            title: "Web Search Results",
-            content: searchResults,
-            url: "",
-            source: "Tavily",
-          },
-        ];
-      }
-
-      // If no results, provide a fallback
-      if (results.length === 0) {
-        results.push({
-          title: "Web Search",
-          content: `I searched for "${query}" but couldn't retrieve specific web results at this time. However, I can help you with information from my knowledge base or suggest alternative approaches.`,
-          url: "",
-          source: "Assistant",
-        });
-      }
-
-      console.log(
-        `🌐 Tavily search completed: ${results.length} results found`
-      );
-      return {
-        query,
-        results: results.slice(0, maxResults),
-        timestamp: new Date().toISOString(),
-      };
-    } catch (error) {
-      console.error("❌ Tavily search error:", error);
-      return {
-        query,
-        results: [
-          {
-            title: "Search Error",
-            content: `I encountered an issue while searching for "${query}". Please ensure the TAVILY_API_KEY is set in your environment variables. I can still help you with information from my knowledge base.`,
-            url: "",
-            source: "Assistant",
-          },
-        ] as WebSearchResult[],
-        timestamp: new Date().toISOString(),
-      };
-    }
-  },
-  {
-    name: "web_search",
-    description:
-      "MANDATORY tool for searching current information on the internet. Use this tool for ANY query about: current events, recent news, upcoming events/conferences, product launches, company announcements, market trends after April 2024, or anything with keywords like 'recent', 'latest', 'current', 'upcoming', 'today', 'this year', '2024'. Do NOT mention knowledge cutoffs - just search.",
-    schema: z.object({
-      query: z.string().describe("The search query to look up on the web"),
-      maxResults: z
-        .number()
-        .optional()
-        .default(5)
-        .describe("Maximum number of search results to return (default: 5)"),
-    }),
-  }
-);
 
 // Define tools for the LLM to generate cards
 const generateActionListTool = tool(
@@ -305,21 +206,16 @@ const shouldReplaceWithCards = async (message: string): Promise<boolean> => {
 
 User message: "${message}"
 
-**IMPORTANT: If the user is asking for CURRENT, RECENT, or LATEST information (especially with words like "latest", "current", "recent", "today", "2024", "2025", "upcoming"), use REGULAR TEXT FORMAT so web search can be used.**
-
 Use the brief intro + cards format when the user is asking for:
-- Quick wins, immediate actions, or things to implement today/soon (but NOT current news/events)
-- Step-by-step recommendations or actionable advice (but NOT current information)
-- Lists of actions, strategies, or tactics (but NOT recent developments)
-- Competitive analysis or how to respond to competitors (but NOT current market news)
-- Strategic recommendations or suggestions (but NOT latest trends)
-- Things to do, action items, or to-do lists (but NOT current events)
-- How to improve, compete, or respond to market changes (but NOT recent changes)
+- Quick wins, immediate actions, or things to implement today/soon
+- Step-by-step recommendations or actionable advice
+- Lists of actions, strategies, or tactics
+- Competitive analysis or how to respond to competitors
+- Strategic recommendations or suggestions
+- Things to do, action items, or to-do lists
+- How to improve, compete, or respond to market changes
 
 Use regular text format when the user is asking for:
-- **Current, recent, latest, or upcoming information (PRIORITY)**
-- **News, events, or developments happening now or recently**
-- **Information about 2024, 2025, or "today"**
 - General information or explanations
 - Definitions or concepts
 - Historical context or background
@@ -392,10 +288,10 @@ const shouldReplaceWithCardsRegex = (message: string): boolean => {
   return false;
 };
 
-// Initialize OpenAI ChatGPT for the agent with web browsing capabilities
+// Initialize OpenAI ChatGPT for the agent
 const createAgentLLM = (): ChatOpenAI => {
   return new ChatOpenAI({
-    modelName: "gpt-4o", // Upgraded to GPT-4o for better web search integration
+    modelName: "gpt-4o",
     temperature: 0.2,
     streaming: true,
     openAIApiKey: process.env.OPENAI_API_KEY,
@@ -588,22 +484,16 @@ You are analyzing VALUE-TO-EFFORT RATIOS - the most efficient actions for compet
 - Maximum impact per unit of effort`;
   }
 
-  return `**🌐 CRITICAL WEB SEARCH REQUIREMENT 🌐**
-**YOU MUST USE THE WEB_SEARCH TOOL FOR ANY QUERY ABOUT:**
-- Current events, recent news, today's information
-- Upcoming conferences, events, product launches  
-- Recent company announcements or developments
-- Current market trends or statistics
-- Any information after April 2024
-- Questions with words: "recent", "latest", "current", "upcoming", "today", "this year", "2024", "2025"
-
-**IF YOU DON'T HAVE CURRENT INFORMATION, USE WEB_SEARCH - DO NOT MENTION KNOWLEDGE CUTOFFS**
-
-You are an AI assistant specialized in market intelligence and competitive strategy. You have access to detailed insights about companies and market data, as well as web search capabilities for current information.
+  return `You are an AI assistant specialized in market intelligence and competitive strategy. You have access to detailed insights about companies and market data.
 
 ${roleContext}
 
-**CRITICAL: Your knowledge cutoff is April 2024. For ANY information after April 2024 or current events, you MUST use the web_search tool.**
+**IMPORTANT CONTEXT UNDERSTANDING:**
+- The data provided below represents ALL available market intelligence in your knowledge base
+- This is your complete context - you do not need additional information to provide recommendations
+- When users ask broad questions like "what's something important I can do" or "what should I focus on", provide direct recommendations based on this data
+- Do NOT ask for more context, clarification, or additional details - work with what you have
+- The vector store contains comprehensive market intelligence that is sufficient for making strategic recommendations
 
 Your role is to:
 1. Analyze and interpret market data
@@ -611,24 +501,15 @@ Your role is to:
 3. Suggest actionable recommendations based on market intelligence
 4. Help users understand industry trends and opportunities
 5. Prioritize actions based on value, effort, and competitive impact
-6. **ALWAYS use web_search for current events, recent news, upcoming events, conferences, product launches, or anything after April 2024**
-
-**WEB SEARCH REQUIRED FOR:**
-- Current events, recent news, today's information
-- Upcoming conferences, events, product launches
-- Recent company announcements or developments
-- Current market trends or statistics
-- Any information that might have changed since April 2024
-- Questions about "recent", "latest", "current", "upcoming", "today", "this year", "2024", etc.
+6. **Provide direct, actionable answers without requesting more context**
 
 Here are the relevant insights from the data based on the user's query:
 
 ${searchResults}
 
 Instructions:
-- Use the provided insights to answer the user's question comprehensively
-- **MANDATORY: If the user asks about anything current, recent, upcoming, or after April 2024, you MUST use the web_search tool first**
-- **If you don't have current information, DO NOT mention your knowledge cutoff - just use web search**
+- Use the provided insights to answer the user's question comprehensively and directly
+- When users ask broad questions, select the most relevant and high-impact recommendations from the available data
 - When showing actions, always include value scores, effort scores, and value-to-effort ratios
 - Prioritize recommendations based on the search type (quick wins, high value, etc.)
 - Provide specific, actionable advice with clear implementation guidance
@@ -637,8 +518,9 @@ Instructions:
 - If asked about companies not in the data, clearly state that information is not available
 - For competitive analysis, explain how each action helps versus competitors
 - **IMPORTANT: Do NOT include any sources or links in your response**
+- **CRITICAL: Do NOT ask for more context or clarification - provide direct recommendations based on available data**
 
-Remember: You are an expert analyst helping with market intelligence and competitive analysis, with a focus on actionable, high-impact recommendations. **ALWAYS use web search for current information - never mention knowledge cutoffs.**
+Remember: You are an expert analyst helping with market intelligence and competitive analysis, with a focus on actionable, high-impact recommendations. The data provided is your complete context - use it to give direct, valuable insights.
 
 Make sure to always end the response with a question asking the user if they want assistance with moving forward with the recommendations, such as creating a plan, timeline, or next steps. Make sure that this question is formatted in such a way that the user won't miss it.`;
 };
@@ -888,79 +770,7 @@ const streamRegularAgentResponse = async (
 
   console.log(`📊 Found ${searchResults.length} relevant insights`);
 
-  // First, check if we need to use web search by getting a non-streaming response
-  const llmWithWebSearch = createAgentLLMWithWebSearch();
-  console.log(`🌐 Checking if web search is needed...`);
-
-  try {
-    // Use a shorter timeout and better error handling for the initial check
-    const checkResponse = await llmWithWebSearch.invoke(contextualHistory, {
-      timeout: 10000, // 10 second timeout
-    });
-
-    console.log(`🔍 Initial response check completed`);
-
-    // Check if the response contains tool calls
-    if (checkResponse.tool_calls && checkResponse.tool_calls.length > 0) {
-      console.log(
-        `🌐 Web search tool calls detected: ${checkResponse.tool_calls.length}`
-      );
-      console.log(
-        `🔧 Processing ${checkResponse.tool_calls.length} tool calls...`
-      );
-
-      // Process each tool call
-      for (const toolCall of checkResponse.tool_calls) {
-        if (toolCall.name === "web_search") {
-          console.log(
-            `🌐 Executing web search: ${JSON.stringify(toolCall.args)}`
-          );
-
-          try {
-            const args = toolCall.args as {
-              query: string;
-              maxResults?: number;
-            };
-            const webSearchResult = await webSearchTool.func({
-              query: args.query,
-              maxResults: args.maxResults || 5,
-            });
-            console.log(
-              `🌐 Web search completed, generating response with current information...`
-            );
-
-            // Add web search results to the context
-            const webSearchContext = `\n\nCURRENT WEB SEARCH RESULTS:\n${JSON.stringify(
-              webSearchResult,
-              null,
-              2
-            )}`;
-            const enhancedSystemPrompt = systemPrompt + webSearchContext;
-            const enhancedSystemMessage = new AIMessage(enhancedSystemPrompt);
-
-            // Update the contextual history with enhanced information
-            contextualHistory[0] = enhancedSystemMessage;
-            break; // Only process the first web search for now
-          } catch (webSearchError) {
-            console.error(`❌ Web search execution failed:`, webSearchError);
-            // Continue without web search results
-          }
-        }
-      }
-    } else {
-      console.log(
-        `📝 No web search needed, proceeding with vector search only`
-      );
-    }
-  } catch (error) {
-    console.error(
-      `⚠️ Error during web search check (continuing without web search):`,
-      error instanceof Error ? error.message : String(error)
-    );
-    // Continue with regular response even if web search check fails
-  }
-
-  // If no web search was needed or there was an error, proceed with regular response
+  // Stream regular agent response
   console.log(`🚀 Streaming regular agent response...`);
   const regularLLM = createAgentLLM();
   const streamResponse = await regularLLM.stream(contextualHistory);
@@ -1109,31 +919,17 @@ export const searchOrionData = async (
 // Create LLM with tools for card generation
 const createLLMWithTools = () => {
   const llm = new ChatOpenAI({
-    modelName: "gpt-4o", // Upgraded to GPT-4o for better tool usage and web search
+    modelName: "gpt-4o",
     temperature: 0, // Set to 0 for consistent, data-driven responses
     streaming: false,
     openAIApiKey: process.env.OPENAI_API_KEY,
   });
 
   return llm.bindTools([
-    // webSearchTool removed from card generation - only used for regular text responses
-    // generateActionListTool, // Disabled for now
     generateQuickWinsTool,
-    // generateCompetitiveAnalysisTool,
+    generateCompetitiveAnalysisTool,
     generateAssistanceTool,
   ]);
-};
-
-// Create LLM with web search for regular text responses
-const createAgentLLMWithWebSearch = () => {
-  const llm = new ChatOpenAI({
-    modelName: "gpt-4o",
-    temperature: 0.2,
-    streaming: true,
-    openAIApiKey: process.env.OPENAI_API_KEY,
-  });
-
-  return llm.bindTools([webSearchTool]);
 };
 
 // Generate cards using LLM with tools for agent responses
@@ -1238,182 +1034,6 @@ Only generate cards that add value to the conversation. If the response is just 
     };
   } catch (error) {
     console.error("❌ Error generating AGENT cards:", error);
-    return null;
-  }
-};
-
-// Helper function to generate brief intro text based on user message using LLM
-const generateBriefIntro = async (message: string): Promise<string> => {
-  try {
-    console.log("🔧 Generating dynamic intro text with LLM...");
-
-    const llm = new ChatOpenAI({
-      modelName: "gpt-4o-mini",
-      temperature: 0, // Set to 0 for consistent responses
-      streaming: false,
-      openAIApiKey: process.env.OPENAI_API_KEY,
-    });
-
-    const introPrompt = `You are a market intelligence assistant. The user asked: "${message}"
-
-Generate a brief, natural introductory response (1-2 sentences) that:
-- Acknowledges their specific request in the context of market intelligence
-- Sets up the expectation that detailed market intelligence follows in interactive cards
-- Is conversational and professional, not robotic
-- Does NOT repeat information that will be in the cards themselves
-- Focuses on competitive intelligence context
-
-Generate only the intro text, nothing else. Use a friendly tone with a relaxed, conversational style.`;
-
-    const response = await llm.invoke([new HumanMessage(introPrompt)]);
-    const introText =
-      response.content?.toString() ||
-      "Based on our market intelligence, here are some strategic insights:";
-
-    console.log("📝 LLM-generated intro text:", introText);
-    return introText;
-  } catch (error) {
-    console.error("❌ Error generating intro text with LLM:", error);
-    // Fallback to a generic intro if LLM fails
-    return "Based on our market intelligence, here are some strategic insights:";
-  }
-};
-
-// New function to generate dynamic response with cards using LLM
-const generateAgentDynamicResponseWithCards = async (
-  userMessage: string,
-  aiResponse: string,
-  searchResults: any[]
-): Promise<{ introText: string; cards: any[] } | null> => {
-  try {
-    console.log(
-      "🔍 Generating AGENT dynamic response with cards for:",
-      userMessage
-    );
-    console.log("📝 User message:", userMessage.substring(0, 100) + "...");
-    console.log("🔍 Search results:", searchResults.length);
-    console.log("🔧 Dynamic prompt being sent to LLM...");
-
-    const systemPrompt = `You are an expert business analyst and consultant with access to market intelligence data. Based on the user's request, provide:
-
-1. A brief, contextual introduction (2-3 sentences max) that directly addresses their request
-2. Generate relevant interactive cards using the available tools
-
-Guidelines:
-- Keep the intro concise and actionable
-- Focus on providing immediate value
-- Use tools to generate cards that help the user take action
-- Do not include sources or references in your response
-- Be direct and practical
-
-Available context: ${JSON.stringify(searchResults, null, 2)}`;
-
-    const llmWithTools = createLLMWithTools();
-
-    const dynamicPrompt = `The user asked: "${userMessage}"
-
-Your task is to:
-1. Generate an appropriate brief introductory response (1-2 sentences) that acknowledges their request
-2. Use the available tools to create interactive cards that provide the detailed answer
-
-Guidelines for the intro:
-- Be natural and conversational, not robotic
-- Acknowledge what they're asking for specifically
-- Set up the expectation that detailed information follows in the cards
-- Don't repeat information that will be in the cards
-- Examples of good intros:
-  * "I can help you with that! Here are some actionable recommendations:"
-  * "Great question! Let me provide you with some strategic insights:"
-  * "Absolutely! I've identified several opportunities for you:"
-
-Use the tools to generate cards when:
-1. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins  
-2. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis
-3. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
-
-For assistance suggestions, phrase them from the USER'S perspective since they will be pasted into the chat when clicked. Examples:
-- "Give me more quick wins for this area"
-- "Show me competitive analysis"
-- "I need help with implementation"
-- "What should I prioritize next?"
-
-Generate a brief, natural intro and then use the appropriate tools to create detailed cards.`;
-
-    console.log("🔧 Invoking LLM for AGENT dynamic response generation...");
-    const response = await llmWithTools.invoke([
-      new HumanMessage(systemPrompt),
-      new HumanMessage(dynamicPrompt),
-    ]);
-
-    // Extract intro text from the response
-    const introText = response.content?.toString() || "";
-
-    console.log(
-      "📊 AGENT Dynamic response received. Tool calls:",
-      response.tool_calls?.length || 0
-    );
-    console.log(
-      "📝 Generated intro text:",
-      introText.substring(0, 100) + "..."
-    );
-
-    const cards: any[] = [];
-
-    if (response.tool_calls && response.tool_calls.length > 0) {
-      console.log("🛠️ Processing AGENT tool calls...");
-      for (const toolCall of response.tool_calls) {
-        console.log(`🔧 Processing AGENT tool: ${toolCall.name}`);
-        try {
-          let result;
-          switch (toolCall.name) {
-            case "generate_quick_wins":
-              result = await generateQuickWinsTool.invoke(toolCall.args as any);
-              break;
-            case "generate_competitive_analysis":
-              result = await generateCompetitiveAnalysisTool.invoke(
-                toolCall.args as any
-              );
-              break;
-            case "generate_assistance_suggestions":
-              result = await generateAssistanceTool.invoke(
-                toolCall.args as any
-              );
-              break;
-          }
-          if (result) {
-            console.log(`✅ AGENT Tool ${toolCall.name} executed successfully`);
-            cards.push(result);
-          }
-        } catch (error) {
-          console.error(
-            `❌ Error executing AGENT tool ${toolCall.name}:`,
-            error
-          );
-        }
-      }
-    }
-
-    console.log(
-      `🎴 AGENT Dynamic response complete. Generated ${cards.length} cards`
-    );
-
-    return {
-      introText: introText.trim(),
-      cards,
-    };
-  } catch (error) {
-    if (error instanceof Error) {
-      console.error(
-        "❌ Error generating AGENT dynamic response:",
-        error.message
-      );
-      console.error("Stack trace:", error.stack);
-    } else {
-      console.error(
-        "❌ Unknown error generating AGENT dynamic response:",
-        error
-      );
-    }
     return null;
   }
 };

@@ -431,11 +431,43 @@ const streamRegularTextResponse = async (
 ) => {
   let fullResponse = "";
 
+  // Create system prompt for regular chat
+  const systemPrompt = `You are an expert business analyst and consultant assistant. 
+
+**IMPORTANT CONTEXT UNDERSTANDING:**
+- You have access to comprehensive business intelligence and market data through your training
+- This is your complete context - you do not need additional information to provide recommendations
+- When users ask broad questions like "what's something important I can do" or "what should I focus on", provide direct, actionable recommendations
+- Do NOT ask for more context, clarification, or additional details - work with what you have
+- Provide immediate value and practical advice
+
+Your role is to:
+1. Provide direct, actionable business advice and recommendations
+2. Help users with strategic thinking and decision-making
+3. Offer practical solutions based on business best practices
+4. Be conversational and helpful while remaining professional
+5. **Always provide direct answers without requesting more information**
+
+Guidelines:
+- Be concise but thorough in your responses
+- Provide specific, actionable advice when possible
+- Use business best practices and proven strategies
+- Be conversational and engaging
+- Focus on practical implementation
+- **CRITICAL: Do NOT ask for more context or clarification - provide direct recommendations based on the question asked**
+
+Remember: You are here to provide immediate value and actionable insights. Give direct, helpful responses based on the user's question.`;
+
+  const systemMessage = new AIMessage(systemPrompt);
+
   // Initialize regular LLM for streaming
   const llm = createLLM();
 
+  // Create contextual history with system prompt
+  const contextualHistory = [systemMessage, ...history];
+
   // Get streaming response from LLM
-  const llmStream = await llm.stream([...history]);
+  const llmStream = await llm.stream(contextualHistory);
 
   // Process the stream immediately without artificial delays
   for await (const chunk of llmStream) {
@@ -450,7 +482,7 @@ const streamRegularTextResponse = async (
     }
   }
 
-  // Add AI response to conversation history
+  // Add AI response to conversation history (without system message)
   const aiMessage = new AIMessage(fullResponse);
   history.push(aiMessage);
   updateConversationHistory(conversationId, history);
@@ -486,17 +518,25 @@ const streamBriefIntroWithCards = async (
 
   const introPrompt = `You are an expert business analyst and consultant. The user asked: "${message}"
 
+**IMPORTANT CONTEXT UNDERSTANDING:**
+- You have access to comprehensive business intelligence and market data
+- This is your complete context - you do not need additional information to provide recommendations
+- When users ask broad questions like "what's something important I can do" or "what should I focus on", provide direct recommendations
+- Do NOT ask for more context, clarification, or additional details - work with what you have
+
 Generate a brief, natural introductory response (1-2 sentences) that:
 - Acknowledges their specific request
 - Sets up the expectation that detailed information follows in interactive cards
 - Is conversational and professional, not robotic
 - Does NOT repeat information that will be in the cards themselves
 - Be direct and practical
+- Provides immediate value without requesting more information
 
 Examples of good intros:
 - "I can help you with that! Here are some actionable recommendations:"
 - "Great question! Let me provide you with some strategic insights:"
 - "Absolutely! I've identified several opportunities for you:"
+- "Based on the available data, here are some high-impact actions you can take:"
 
 Generate only the intro text, nothing else.`;
 
@@ -679,6 +719,12 @@ const generateDynamicResponseWithCards = async (
 
     const systemPrompt = `You are an expert business analyst and consultant. Based on the user's request, provide:
 
+**IMPORTANT CONTEXT UNDERSTANDING:**
+- You have access to comprehensive business intelligence and market data
+- This is your complete context - you do not need additional information to provide recommendations
+- When users ask broad questions like "what's something important I can do" or "what should I focus on", provide direct recommendations
+- Do NOT ask for more context, clarification, or additional details - work with what you have
+
 1. A brief, contextual introduction (2-3 sentences max) that directly addresses their request
 2. Generate relevant interactive cards using the available tools
 
@@ -688,12 +734,15 @@ Guidelines:
 - Use tools to generate cards that help the user take action
 - Do not include sources or references in your response
 - Be direct and practical
+- Provide direct recommendations without requesting more information
 
 Available context: ${searchResults}`;
 
     const llmWithTools = createLLMWithTools();
 
     const dynamicPrompt = `The user asked: "${userMessage}"
+
+**CRITICAL: Do NOT ask for more context or clarification - provide direct recommendations based on the question asked.**
 
 Your task is to:
 1. Generate an appropriate brief introductory response (1-2 sentences) that acknowledges their request
@@ -704,10 +753,12 @@ Guidelines for the intro:
 - Acknowledge what they're asking for specifically
 - Set up the expectation that detailed information follows in the cards
 - Don't repeat information that will be in the cards
+- Provide immediate value without asking for more details
 - Examples of good intros:
   * "I can help you with that! Here are some actionable recommendations:"
   * "Great question! Let me provide you with some strategic insights:"
   * "Absolutely! I've identified several opportunities for you:"
+  * "Based on best practices, here are some high-impact actions you can take:"
 
 Use the tools to generate cards when:
 1. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins  
