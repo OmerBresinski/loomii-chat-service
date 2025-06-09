@@ -2,13 +2,8 @@ import { Router, Request, Response } from "express";
 import {
   streamChatCompletion,
   getConversationHistory,
-  streamChatWithAgent,
 } from "../services/chatService";
-import {
-  streamAgentResponse,
-  getAgentConversationHistory,
-  searchOrionData,
-} from "../services/agentService";
+import { searchOrionData } from "../services/vectorStore";
 import { ChatOpenAI } from "@langchain/openai";
 import { HumanMessage } from "@langchain/core/messages";
 import dotenv from "dotenv";
@@ -134,10 +129,10 @@ Only return the JSON object, nothing else.`;
   }
 );
 
-// Regular chat endpoint with streaming support and automatic agent detection
+// Unified chat endpoint with streaming support and intelligent routing
 chatRouter.post("/chat", async (req: Request, res: Response) => {
   try {
-    const { message, conversationId, mode } = req.body;
+    const { message, conversationId } = req.body;
 
     if (!message) {
       return res.status(400).json({ error: "Message is required" });
@@ -155,17 +150,8 @@ chatRouter.post("/chat", async (req: Request, res: Response) => {
     // Disable Express compression for this response
     res.set("Content-Encoding", "identity");
 
-    let stream;
-
-    // Handle explicit mode selection
-    if (mode === "agent") {
-      stream = await streamChatWithAgent(message, conversationId);
-    } else if (mode === "regular") {
-      stream = await streamChatCompletion(message, conversationId, false); // Force regular mode
-    } else {
-      // Use automatic detection (default behavior)
-      stream = await streamChatCompletion(message, conversationId);
-    }
+    // Use unified chat service that handles everything
+    const stream = await streamChatCompletion(message, conversationId);
 
     // Handle the ReadableStream properly
     const reader = stream.getReader();
@@ -187,54 +173,6 @@ chatRouter.post("/chat", async (req: Request, res: Response) => {
     }
   } catch (error) {
     console.error("Chat endpoint error:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// Agent chat endpoint with vector search and streaming support
-chatRouter.post("/agent", async (req: Request, res: Response) => {
-  try {
-    const { message, conversationId } = req.body;
-
-    if (!message) {
-      return res.status(400).json({ error: "Message is required" });
-    }
-
-    // Set headers for streaming
-    res.setHeader("Content-Type", "text/plain; charset=utf-8");
-    res.setHeader("Transfer-Encoding", "chunked");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Headers", "Cache-Control");
-    res.setHeader("X-Accel-Buffering", "no"); // Disable nginx buffering
-
-    // Disable Express compression for this response
-    res.set("Content-Encoding", "identity");
-
-    // Get streaming response from agent service with vector search
-    const stream = await streamAgentResponse(message, conversationId);
-
-    // Handle the ReadableStream properly
-    const reader = stream.getReader();
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        // Handle both string and Uint8Array chunks
-        const chunk =
-          typeof value === "string" ? value : new TextDecoder().decode(value);
-        res.write(chunk);
-      }
-      res.end();
-    } catch (error) {
-      console.error("Agent stream error:", error);
-      res.status(500).end();
-    }
-  } catch (error) {
-    console.error("Agent endpoint error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -277,7 +215,7 @@ chatRouter.post("/search", async (req: Request, res: Response) => {
   }
 });
 
-// Get regular conversation history
+// Get conversation history
 chatRouter.get("/chat/:conversationId", async (req: Request, res: Response) => {
   try {
     const { conversationId } = req.params;
@@ -288,18 +226,3 @@ chatRouter.get("/chat/:conversationId", async (req: Request, res: Response) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-
-// Get agent conversation history
-chatRouter.get(
-  "/agent/:conversationId",
-  async (req: Request, res: Response) => {
-    try {
-      const { conversationId } = req.params;
-      const history = await getAgentConversationHistory(conversationId);
-      res.json({ conversationId, history, type: "agent" });
-    } catch (error) {
-      console.error("Get agent conversation error:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  }
-);

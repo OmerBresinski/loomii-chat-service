@@ -2,7 +2,6 @@ import { Readable } from "stream";
 import { ChatOpenAI } from "@langchain/openai";
 import { HumanMessage, AIMessage, BaseMessage } from "@langchain/core/messages";
 import { InMemoryStore } from "@langchain/core/stores";
-import { streamAgentResponse } from "./agentService";
 import dotenv from "dotenv";
 import {
   getOrCreateConversationHistory,
@@ -10,47 +9,21 @@ import {
 } from "./conversationHistory";
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
+import {
+  initializeVectorStore,
+  performSimilaritySearch,
+  getQuickWins,
+  getHighValueActions,
+  getActionsByValueEffortRatio,
+  getInsightsByCompany,
+  getInsightsByImpact,
+} from "./vectorStore";
+import { Document } from "@langchain/core/documents";
 
 // Load environment variables
 dotenv.config();
 
-// Global conversation histories storage
-// const conversationHistories = new Map<string, BaseMessage[]>();
-
 // Define tools for the LLM to generate cards
-const generateActionListTool = tool(
-  async ({ title, items, description }) => {
-    console.log("🔧 TOOL CALLED: generate_action_list", {
-      title,
-      itemsCount: items?.length,
-      description,
-    });
-    return {
-      type: "action-list",
-      title,
-      description,
-      items,
-    };
-  },
-  {
-    name: "generate_action_list",
-    description:
-      "Generate an action list card when the user asks for recommendations, steps, or things to do",
-    schema: z.object({
-      title: z.string().describe("Title for the action list"),
-      description: z.string().optional().describe("Optional description"),
-      items: z
-        .array(
-          z.object({
-            title: z.string(),
-            description: z.string().optional(),
-          })
-        )
-        .describe("List of actionable items"),
-    }),
-  }
-);
-
 const generateQuickWinsTool = tool(
   async ({ title, items, description }) => {
     console.log("🔧 TOOL CALLED: generate_quick_wins", {
@@ -68,7 +41,7 @@ const generateQuickWinsTool = tool(
   {
     name: "generate_quick_wins",
     description:
-      "Generate quick wins card when user asks for immediate actions, things to do today/this week, or low-effort high-impact opportunities",
+      "ONLY use this tool when the user is explicitly asking you to GENERATE or CREATE NEW quick wins, immediate actions, or low-effort high-impact opportunities. Do NOT use this tool when the user is discussing, analyzing, or asking for help with EXISTING quick wins (e.g., 'help me split this quick win into tasks', 'how do I implement this quick win'). Only use when they want you to suggest NEW quick wins.",
     schema: z.object({
       title: z.string().describe("Title for quick wins"),
       description: z.string().optional().describe("Optional description"),
@@ -166,8 +139,8 @@ const generateAssistanceTool = tool(
 // Create regular LLM for streaming
 const createLLM = (): ChatOpenAI => {
   return new ChatOpenAI({
-    modelName: "gpt-4o-mini",
-    temperature: 0,
+    modelName: "gpt-4o",
+    temperature: 0.2,
     streaming: true,
     openAIApiKey: process.env.OPENAI_API_KEY,
   });
@@ -176,199 +149,207 @@ const createLLM = (): ChatOpenAI => {
 // Create LLM with tools for card generation
 const createLLMWithTools = () => {
   const llm = new ChatOpenAI({
-    modelName: "gpt-4o-mini",
+    modelName: "gpt-4o",
     temperature: 0,
     streaming: false, // Tools work better without streaming
     openAIApiKey: process.env.OPENAI_API_KEY,
   });
 
-  return llm.bindTools([
-    // generateActionListTool, // Disabled for now
-    // generateQuickWinsTool,
-    // generateCompetitiveAnalysisTool,
-    // generateAssistanceTool,
-  ]);
+  return llm.bindTools([generateQuickWinsTool, generateAssistanceTool]);
 };
 
-// Helper function to determine if a message should trigger cards-only response
-const shouldReplaceWithCards = (message: string): boolean => {
-  console.log("🔍 Analyzing message for cards-only response:", message);
+// Enhanced query analysis to detect specific search intents
+const analyzeQuery = (
+  query: string
+): {
+  searchType:
+    | "similarity"
+    | "company"
+    | "impact"
+    | "quickWins"
+    | "highValue"
+    | "valueEffort"
+    | "general";
+  searchTerm?: string;
+  k?: number;
+} => {
+  const lowerQuery = query.toLowerCase();
 
-  // Keywords that suggest market intelligence queries
-  const cardOnlyTriggers = [
-    /give me \d+ (steps?|things?|ways?|actions?)/i,
-    /\d+ (quick wins?|recommendations?|suggestions?)/i,
-    /list of (actions?|steps?|recommendations?)/i,
-    /what should (i|we) do/i,
-    /how (can|should) (i|we) (improve|compete|respond)/i,
-    /(action items?|to-?do list)/i,
-  ];
+  // Check for quick wins queries
+  if (
+    lowerQuery.includes("quick win") ||
+    lowerQuery.includes("low effort") ||
+    lowerQuery.includes("easy") ||
+    (lowerQuery.includes("today") &&
+      (lowerQuery.includes("value") || lowerQuery.includes("return"))) ||
+    lowerQuery.includes("immediate")
+  ) {
+    return { searchType: "quickWins", k: 5 };
+  }
 
-  for (let i = 0; i < cardOnlyTriggers.length; i++) {
-    const pattern = cardOnlyTriggers[i];
-    const matches = pattern.test(message);
-    console.log(
-      `🔍 Pattern ${i + 1} (${pattern}): ${
-        matches ? "✅ MATCH" : "❌ no match"
-      }`
+  // Check for high-value queries
+  if (
+    lowerQuery.includes("high value") ||
+    lowerQuery.includes("highest value") ||
+    lowerQuery.includes("most valuable") ||
+    lowerQuery.includes("biggest impact")
+  ) {
+    return { searchType: "highValue", k: 5 };
+  }
+
+  // Check for value-effort ratio queries
+  if (
+    lowerQuery.includes("value effort") ||
+    lowerQuery.includes("roi") ||
+    lowerQuery.includes("return on investment") ||
+    lowerQuery.includes("efficiency")
+  ) {
+    return { searchType: "valueEffort", k: 5 };
+  }
+
+  // Check for company-specific queries
+  const companyMatch = lowerQuery.match(
+    /\b(microsoft|google|amazon|apple|meta|tesla|nvidia|salesforce)\b/
+  );
+  if (companyMatch) {
+    return { searchType: "company", searchTerm: companyMatch[1], k: 5 };
+  }
+
+  // Check for impact-level queries
+  if (lowerQuery.includes("high impact")) {
+    return { searchType: "impact", searchTerm: "high", k: 5 };
+  }
+  if (lowerQuery.includes("medium impact")) {
+    return { searchType: "impact", searchTerm: "medium", k: 5 };
+  }
+  if (lowerQuery.includes("low impact")) {
+    return { searchType: "impact", searchTerm: "low", k: 5 };
+  }
+
+  // Default to similarity search
+  return { searchType: "similarity", k: 3 };
+};
+
+// Format search results for the LLM context
+const formatSearchResults = (results: Document[]): string => {
+  if (results.length === 0) {
+    return "No relevant insights found in the market intelligence data.";
+  }
+
+  return results
+    .map((doc, index) => {
+      const metadata = doc.metadata;
+
+      // Format differently based on document type
+      if (metadata.documentType === "action") {
+        // Format source links for actions
+        const sourceLinks =
+          metadata.links && Array.isArray(metadata.links)
+            ? metadata.links
+                .map(
+                  (link: string, linkIndex: number) =>
+                    `[Source ${linkIndex + 1}](${link})`
+                )
+                .join("\n")
+            : "No source links available";
+
+        return `
+--- Action ${index + 1} ---
+Company: ${metadata.company}
+Action: ${metadata.actionContent}
+Value Score: ${metadata.value}/10
+Effort Score: ${metadata.effort}/10
+Value-to-Effort Ratio: ${metadata.valueToEffortRatio}
+Quick Win Category: ${metadata.quickWinCategory}
+Context: ${metadata.insightTitle}
+Impact Level: ${metadata.impact}
+Source Links:
+${sourceLinks}
+`;
+      } else {
+        // Format source links for insights
+        const sourceLinks =
+          metadata.links && Array.isArray(metadata.links)
+            ? metadata.links
+                .map(
+                  (link: string, linkIndex: number) =>
+                    `[Source ${linkIndex + 1}](${link})`
+                )
+                .join("\n")
+            : "No source links available";
+
+        return `
+--- Insight ${index + 1} ---
+Company: ${metadata.company}
+Title: ${metadata.title}
+Impact: ${metadata.impact}
+Content: ${doc.pageContent}
+Source Links:
+${sourceLinks}
+`;
+      }
+    })
+    .join("\n");
+};
+
+// Create system prompt based on search results and query type
+const createSystemPrompt = (
+  searchResults: string,
+  searchType: string
+): string => {
+  const basePrompt = `You are an expert business analyst and market intelligence consultant with access to comprehensive business data and insights.
+
+**IMPORTANT CONTEXT UNDERSTANDING:**
+- You have access to comprehensive business intelligence and market data
+- This is your complete context - you do not need additional information to provide recommendations
+- When users ask broad questions, provide direct, actionable recommendations
+- Do NOT ask for more context, clarification, or additional details - work with what you have
+- Provide immediate value and practical advice
+
+**Available Market Intelligence:**
+${searchResults}
+
+Your role is to:
+1. Provide direct, actionable business advice and recommendations
+2. Help users with strategic thinking and decision-making based on market intelligence
+3. Offer practical solutions based on business best practices and the available data
+4. Be conversational and helpful while remaining professional
+5. **Always provide direct answers without requesting more information**
+
+Guidelines:
+- Be concise but thorough in your responses
+- Provide specific, actionable advice when possible
+- Use the market intelligence data to support your recommendations
+- Be conversational and engaging
+- Focus on practical implementation
+- **CRITICAL: Do NOT ask for more context or clarification - provide direct recommendations based on the question asked**
+- Use tools when appropriate to generate interactive cards for actionable content
+
+Remember: You are here to provide immediate value and actionable insights based on market intelligence. Give direct, helpful responses.`;
+
+  if (searchType === "quickWins") {
+    return (
+      basePrompt +
+      `
+
+**SPECIAL FOCUS: QUICK WINS**
+You are analyzing QUICK WINS - actions that provide high value with relatively low effort. Focus on:
+- Immediate implementation opportunities
+- Low-effort, high-impact actions
+- Things that can be done today or this week
+- Competitive advantages that require minimal resources
+- Strategic moves with quick returns`
     );
-    if (matches) {
-      console.log("🎴 Message should trigger cards!");
-      return true;
-    }
   }
 
-  console.log("📝 Message will use regular response");
-  return false;
+  return basePrompt;
 };
 
-// Enhanced message analysis for agent mode detection
-const shouldUseAgentMode = (message: string): boolean => {
-  console.log("🤖 Analyzing message for agent mode:", message);
-
-  const lowerMessage = message.toLowerCase();
-
-  // High-priority triggers (strong indicators)
-  const highPriorityTriggers = [
-    "quick win",
-    "competitive",
-    "competitor",
-    "market intelligence",
-    "strategic",
-    "action plan",
-    "recommendations",
-  ];
-
-  // Company-specific terms - remove hardcoded companies
-  const companyTerms: string[] = [];
-
-  // Market intelligence terms
-  const marketTerms = [
-    "market",
-    "industry",
-    "trend",
-    "analysis",
-    "insight",
-    "intelligence",
-    "research",
-    "data",
-    "report",
-  ];
-
-  // Action-oriented terms
-  const actionTerms = [
-    "implement",
-    "execute",
-    "strategy",
-    "plan",
-    "approach",
-    "solution",
-    "optimize",
-    "improve",
-    "enhance",
-  ];
-
-  // Competitive terms
-  const competitiveTerms = [
-    "compete",
-    "advantage",
-    "positioning",
-    "differentiate",
-    "outperform",
-    "benchmark",
-    "compare",
-  ];
-
-  let score = 0;
-  const reasons: string[] = [];
-
-  // Check high-priority triggers (weight: 3)
-  for (const trigger of highPriorityTriggers) {
-    if (lowerMessage.includes(trigger)) {
-      score += 3;
-      reasons.push(`High-priority trigger: ${trigger}`);
-    }
-  }
-
-  // Check company terms (weight: 2)
-  for (const term of companyTerms) {
-    if (lowerMessage.includes(term)) {
-      score += 2;
-      reasons.push(`Company term: ${term}`);
-    }
-  }
-
-  // Check market terms (weight: 2)
-  for (const term of marketTerms) {
-    if (lowerMessage.includes(term)) {
-      score += 2;
-      reasons.push(`Market term: ${term}`);
-    }
-  }
-
-  // Check action terms (weight: 2)
-  for (const term of actionTerms) {
-    if (lowerMessage.includes(term)) {
-      score += 2;
-      reasons.push(`Action term: ${term}`);
-    }
-  }
-
-  // Check competitive terms (weight: 2)
-  for (const term of competitiveTerms) {
-    if (lowerMessage.includes(term)) {
-      score += 2;
-      reasons.push(`Competitive term: ${term}`);
-    }
-  }
-
-  // Domain-specific terms (low weight)
-  const domainTerms: string[] = [];
-  for (const term of domainTerms) {
-    if (lowerMessage.includes(term)) {
-      score += 1;
-      reasons.push(`Domain term: ${term}`);
-    }
-  }
-
-  const threshold = 3;
-  const shouldUseAgent = score >= threshold;
-
-  console.log(`🎯 Agent mode analysis:`);
-  console.log(`   Score: ${score}/${threshold}`);
-  console.log(`   Decision: ${shouldUseAgent ? "USE AGENT" : "USE REGULAR"}`);
-  console.log(`   Reasons: ${reasons.join(", ")}`);
-
-  return shouldUseAgent;
-};
-
-// Helper function to check if message is asking for company-specific information
-const isCompanyQuery = (message: string): boolean => {
-  const lowerMessage = message.toLowerCase();
-  const companies: string[] = []; // Remove hardcoded companies
-
-  return companies.some((company) => lowerMessage.includes(company));
-};
-
-// Enhanced stream chat completion with automatic agent integration
+// Main unified chat completion function
 export const streamChatCompletion = async (
   message: string,
   conversationId: string = "default",
   forceAgent?: boolean
-): Promise<ReadableStream> => {
-  const useAgent = forceAgent || shouldUseAgentMode(message);
-
-  if (useAgent) {
-    return streamChatWithAgent(message, conversationId);
-  } else {
-    return streamRegularChat(message, conversationId);
-  }
-};
-
-// Regular chat functionality with intelligent card generation
-const streamRegularChat = async (
-  message: string,
-  conversationId: string = "default"
 ): Promise<ReadableStream> => {
   const history = getOrCreateConversationHistory(conversationId);
 
@@ -380,39 +361,141 @@ const streamRegularChat = async (
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        // First, check if this should be a brief intro + cards response
-        const shouldUseCardsOnly = await shouldReplaceWithCards(message);
+        console.log("🤖 Processing message:", message);
 
-        if (shouldUseCardsOnly) {
-          console.log("🎴 Generating brief intro + cards response...");
+        // Analyze query to determine search strategy
+        const queryAnalysis = analyzeQuery(message);
+        console.log("🔍 Query analysis:", queryAnalysis);
 
-          // Use brief intro + cards approach
-          await streamBriefIntroWithCards(
-            controller,
-            message,
-            history,
-            conversationId
-          );
-        } else {
-          // Regular text response with optional cards
-          await streamRegularTextResponse(
-            controller,
-            message,
-            history,
-            conversationId
-          );
+        // Initialize vector store and get relevant data
+        await initializeVectorStore();
+
+        let searchResults: any[] = [];
+
+        // Get relevant data based on query type
+        switch (queryAnalysis.searchType) {
+          case "quickWins":
+            searchResults = await getQuickWins(queryAnalysis.k || 5);
+            break;
+          case "highValue":
+            searchResults = await getHighValueActions(queryAnalysis.k || 5);
+            break;
+          case "valueEffort":
+            searchResults = await getActionsByValueEffortRatio(
+              queryAnalysis.k || 5
+            );
+            break;
+          case "company":
+            if (queryAnalysis.searchTerm) {
+              searchResults = await getInsightsByCompany(
+                queryAnalysis.searchTerm
+              );
+            }
+            break;
+          case "impact":
+            if (queryAnalysis.searchTerm) {
+              searchResults = await getInsightsByImpact(
+                queryAnalysis.searchTerm as "high" | "medium" | "low"
+              );
+            }
+            break;
+          case "similarity":
+          default:
+            searchResults = await performSimilaritySearch(
+              message,
+              queryAnalysis.k || 3
+            );
+            break;
         }
 
-        console.log("🏁 Regular chat stream ending");
+        // Format search results for LLM context
+        const formattedResults = formatSearchResults(searchResults);
+        console.log(`📊 Found ${searchResults.length} relevant insights`);
+
+        // Create system prompt with market intelligence context
+        const systemPrompt = createSystemPrompt(
+          formattedResults,
+          queryAnalysis.searchType
+        );
+
+        // Stream the response
+        await streamUnifiedResponse(
+          controller,
+          message,
+          history,
+          conversationId,
+          systemPrompt,
+          searchResults
+        );
+
+        console.log("🏁 Chat stream ending");
         controller.close();
       } catch (error) {
-        console.error("Error in regular chat streaming:", error);
+        console.error("Error in chat streaming:", error);
         controller.error(error);
       }
     },
   });
 
   return stream;
+};
+
+// Unified response streaming function
+const streamUnifiedResponse = async (
+  controller: ReadableStreamDefaultController,
+  message: string,
+  history: any[],
+  conversationId: string,
+  systemPrompt: string,
+  searchResults: any[]
+) => {
+  let fullResponse = "";
+
+  // Create system message
+  const systemMessage = new AIMessage(systemPrompt);
+
+  // Initialize LLM for streaming
+  const llm = createLLM();
+
+  // Create contextual history with system prompt
+  const contextualHistory = [systemMessage, ...history];
+
+  // Get streaming response from LLM
+  const llmStream = await llm.stream(contextualHistory);
+
+  // Process the stream
+  for await (const chunk of llmStream) {
+    if (chunk.content) {
+      const contentStr =
+        typeof chunk.content === "string"
+          ? chunk.content
+          : JSON.stringify(chunk.content);
+      fullResponse += contentStr;
+      controller.enqueue(contentStr);
+    }
+  }
+
+  // Add AI response to conversation history (without system message)
+  const aiMessage = new AIMessage(fullResponse);
+  history.push(aiMessage);
+  updateConversationHistory(conversationId, history);
+
+  // Generate cards using LLM with tools
+  const generatedCards = await generateCardsWithLLM(
+    message,
+    fullResponse,
+    searchResults
+  );
+
+  // Send generated cards as metadata if they add value
+  if (generatedCards.length > 0) {
+    const metadata = {
+      timestamp: new Date().toISOString(),
+      cards: generatedCards,
+      replaceText: false,
+    };
+    await streamMetadataInChunks(controller, metadata);
+  }
 };
 
 // Helper function to stream metadata in chunks
@@ -425,198 +508,29 @@ const streamMetadataInChunks = async (
     metadata
   )}__END_METADATA__`;
 
-  // Stream the metadata string in chunks immediately without delays
   for (let i = 0; i < metadataString.length; i += chunkSize) {
     const chunk = metadataString.slice(i, i + chunkSize);
     controller.enqueue(chunk);
   }
 };
 
-// Helper function for regular text streaming
-const streamRegularTextResponse = async (
-  controller: ReadableStreamDefaultController,
-  message: string,
-  history: any[],
-  conversationId: string
-) => {
-  let fullResponse = "";
-
-  // Create system prompt for regular chat
-  const systemPrompt = `You are an expert business analyst and consultant assistant. 
-
-**IMPORTANT CONTEXT UNDERSTANDING:**
-- You have access to comprehensive business intelligence and market data through your training
-- This is your complete context - you do not need additional information to provide recommendations
-- When users ask broad questions like "what's something important I can do" or "what should I focus on", provide direct, actionable recommendations
-- Do NOT ask for more context, clarification, or additional details - work with what you have
-- Provide immediate value and practical advice
-
-Your role is to:
-1. Provide direct, actionable business advice and recommendations
-2. Help users with strategic thinking and decision-making
-3. Offer practical solutions based on business best practices
-4. Be conversational and helpful while remaining professional
-5. **Always provide direct answers without requesting more information**
-
-Guidelines:
-- Be concise but thorough in your responses
-- Provide specific, actionable advice when possible
-- Use business best practices and proven strategies
-- Be conversational and engaging
-- Focus on practical implementation
-- **CRITICAL: Do NOT ask for more context or clarification - provide direct recommendations based on the question asked**
-
-Remember: You are here to provide immediate value and actionable insights. Give direct, helpful responses based on the user's question.`;
-
-  const systemMessage = new AIMessage(systemPrompt);
-
-  // Initialize regular LLM for streaming
-  const llm = createLLM();
-
-  // Create contextual history with system prompt
-  const contextualHistory = [systemMessage, ...history];
-
-  // Get streaming response from LLM
-  const llmStream = await llm.stream(contextualHistory);
-
-  // Process the stream immediately without artificial delays
-  for await (const chunk of llmStream) {
-    if (chunk.content) {
-      const contentStr =
-        typeof chunk.content === "string"
-          ? chunk.content
-          : JSON.stringify(chunk.content);
-      fullResponse += contentStr;
-      // Stream immediately without delays
-      controller.enqueue(contentStr);
-    }
-  }
-
-  // Add AI response to conversation history (without system message)
-  const aiMessage = new AIMessage(fullResponse);
-  history.push(aiMessage);
-  updateConversationHistory(conversationId, history);
-
-  // Generate cards using LLM with tools (optional supplementary cards)
-  const generatedCards = await generateCardsWithLLM(message, fullResponse);
-
-  // Send generated cards as metadata only if they add value using immediate streaming
-  if (generatedCards.length > 0) {
-    const metadata = {
-      timestamp: new Date().toISOString(),
-      cards: generatedCards,
-      replaceText: false, // Flag to indicate cards supplement text
-    };
-    await streamMetadataInChunks(controller, metadata);
-  }
-};
-
-// Helper function for brief intro + cards response
-const streamBriefIntroWithCards = async (
-  controller: ReadableStreamDefaultController,
-  message: string,
-  history: any[],
-  conversationId: string
-) => {
-  // Create a streaming LLM for intro generation with temperature 0
-  const introLLM = new ChatOpenAI({
-    modelName: "gpt-4o-mini",
-    temperature: 0,
-    streaming: true,
-    openAIApiKey: process.env.OPENAI_API_KEY,
-  });
-
-  const introPrompt = `You are an expert business analyst and consultant. The user asked: "${message}"
-
-**IMPORTANT CONTEXT UNDERSTANDING:**
-- You have access to comprehensive business intelligence and market data
-- This is your complete context - you do not need additional information to provide recommendations
-- When users ask broad questions like "what's something important I can do" or "what should I focus on", provide direct recommendations
-- Do NOT ask for more context, clarification, or additional details - work with what you have
-
-Generate a brief, natural introductory response (1-2 sentences) that:
-- Acknowledges their specific request
-- Sets up the expectation that detailed information follows in interactive cards
-- Is conversational and professional, not robotic
-- Does NOT repeat information that will be in the cards themselves
-- Be direct and practical
-- Provides immediate value without requesting more information
-
-Examples of good intros:
-- I can help you with that! Here are some actionable recommendations:
-- Great question! Let me provide you with some strategic insights:
-- Absolutely! I've identified several opportunities for you:
-- Based on the available data, here are some high-impact actions you can take:
-
-Generate only the intro text, nothing else.`;
-
-  // Stream the intro text in real-time as the LLM generates it
-  console.log("🔧 Streaming intro text generation with LLM...");
-  const introStream = await introLLM.stream([new HumanMessage(introPrompt)]);
-
-  let introText = "";
-  for await (const chunk of introStream) {
-    if (chunk.content) {
-      const contentStr =
-        typeof chunk.content === "string"
-          ? chunk.content
-          : JSON.stringify(chunk.content);
-      introText += contentStr;
-      // Stream each chunk immediately as it's generated
-      controller.enqueue(contentStr);
-    }
-  }
-
-  // Generate cards using LLM with tools
-  const generatedResponse = await generateDynamicResponseWithCards(message, "");
-
-  if (
-    generatedResponse &&
-    generatedResponse.cards &&
-    generatedResponse.cards.length > 0
-  ) {
-    // Send the cards as the main content using immediate streaming
-    const metadata = {
-      timestamp: new Date().toISOString(),
-      cards: generatedResponse.cards,
-      replaceText: false, // Cards supplement the intro
-    };
-
-    // Add the intro + cards indication to history
-    const aiMessage = new AIMessage(
-      introText + " [Interactive cards provided]"
-    );
-    history.push(aiMessage);
-    updateConversationHistory(conversationId, history);
-
-    await streamMetadataInChunks(controller, metadata);
-  } else {
-    // Fallback to regular response if no cards generated
-    await streamRegularTextResponse(
-      controller,
-      message,
-      history,
-      conversationId
-    );
-  }
-};
-
 // Generate cards using LLM with tools
 const generateCardsWithLLM = async (
   userMessage: string,
-  aiResponse: string
+  aiResponse: string,
+  searchResults: any[]
 ): Promise<any[]> => {
   try {
     console.log("🎴 Starting card generation process...");
-    console.log("📝 User message:", userMessage.substring(0, 100) + "...");
-    console.log("🤖 AI response length:", aiResponse.length);
 
     const llmWithTools = createLLMWithTools();
 
-    const cardGenerationPrompt = `Based on this conversation:
+    const cardGenerationPrompt = `Based on this conversation and market intelligence data:
 
 User: ${userMessage}
 Assistant: ${aiResponse}
+
+Available market intelligence: ${searchResults.length} relevant insights found.
 
 Analyze if the user's request and the assistant's response would benefit from interactive cards. Use the available tools to generate appropriate cards when:
 
@@ -633,30 +547,17 @@ For assistance suggestions, phrase them from the USER'S perspective since they w
 
 Only generate cards that add value to the conversation. If the response is just informational without actionable elements, you may skip action cards but still provide assistance suggestions.`;
 
-    console.log("🔧 Invoking LLM with tools for card generation...");
     const response = await llmWithTools.invoke([
       new HumanMessage(cardGenerationPrompt),
     ]);
 
-    console.log(
-      "📊 LLM response received. Tool calls:",
-      response.tool_calls?.length || 0
-    );
-
     const cards: any[] = [];
 
     if (response.tool_calls && response.tool_calls.length > 0) {
-      console.log("🛠️ Processing tool calls...");
       for (const toolCall of response.tool_calls) {
-        console.log(`🔧 Processing tool: ${toolCall.name}`);
         try {
           let result;
           switch (toolCall.name) {
-            // case "generate_action_list": // Disabled
-            //   result = await generateActionListTool.invoke(
-            //     toolCall.args as any
-            //   );
-            //   break;
             case "generate_quick_wins":
               result = await generateQuickWinsTool.invoke(toolCall.args as any);
               break;
@@ -672,15 +573,12 @@ Only generate cards that add value to the conversation. If the response is just 
               break;
           }
           if (result) {
-            console.log(`✅ Tool ${toolCall.name} executed successfully`);
             cards.push(result);
           }
         } catch (error) {
           console.error(`❌ Error executing tool ${toolCall.name}:`, error);
         }
       }
-    } else {
-      console.log("ℹ️ No tool calls generated by LLM");
     }
 
     console.log(`🎴 Card generation complete. Generated ${cards.length} cards`);
@@ -689,14 +587,6 @@ Only generate cards that add value to the conversation. If the response is just 
     console.error("❌ Error generating cards:", error);
     return [];
   }
-};
-
-// Stream chat with explicit agent mode
-export const streamChatWithAgent = async (
-  message: string,
-  conversationId: string = "default"
-): Promise<ReadableStream> => {
-  return streamAgentResponse(message, conversationId);
 };
 
 // Get conversation history
@@ -712,142 +602,9 @@ export const clearConversationHistory = async (
   conversationId: string = "default"
 ) => {
   const history = getOrCreateConversationHistory(conversationId);
-  history.length = 0; // Clear the array
+  history.length = 0;
   return {
     success: true,
     message: `Conversation history cleared for ${conversationId}`,
   };
-};
-
-// New function to generate dynamic response with cards using LLM
-const generateDynamicResponseWithCards = async (
-  userMessage: string,
-  searchResults: string
-): Promise<{ introText: string; cards: any[] } | null> => {
-  try {
-    console.log("🔍 Generating dynamic response with cards for:", userMessage);
-
-    const systemPrompt = `You are an expert business analyst and consultant. Based on the user's request, provide:
-
-**IMPORTANT CONTEXT UNDERSTANDING:**
-- You have access to comprehensive business intelligence and market data
-- This is your complete context - you do not need additional information to provide recommendations
-- When users ask broad questions like "what's something important I can do" or "what should I focus on", provide direct recommendations
-- Do NOT ask for more context, clarification, or additional details - work with what you have
-
-1. A brief, contextual introduction (2-3 sentences max) that directly addresses their request
-2. Generate relevant interactive cards using the available tools
-
-Guidelines:
-- Keep the intro concise and actionable
-- Focus on providing immediate value
-- Use tools to generate cards that help the user take action
-- Do not include sources or references in your response
-- Be direct and practical
-- Provide direct recommendations without requesting more information
-
-Available context: ${searchResults}`;
-
-    const llmWithTools = createLLMWithTools();
-
-    const dynamicPrompt = `The user asked: "${userMessage}"
-
-**CRITICAL: Do NOT ask for more context or clarification - provide direct recommendations based on the question asked.**
-
-Your task is to:
-1. Generate an appropriate brief introductory response (1-2 sentences) that acknowledges their request
-2. Use the available tools to create interactive cards that provide the detailed answer
-
-Guidelines for the intro:
-- Be natural and conversational, not robotic
-- Acknowledge what they're asking for specifically
-- Set up the expectation that detailed information follows in the cards
-- Don't repeat information that will be in the cards
-- Provide immediate value without asking for more details
-- Examples of good intros:
-  * I can help you with that! Here are some actionable recommendations:
-  * Great question! Let me provide you with some strategic insights:
-  * Absolutely! I've identified several opportunities for you:
-  * Based on best practices, here are some high-impact actions you can take:
-
-Use the tools to generate cards when:
-1. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins  
-2. User asks about competitors, competitive analysis, or how to respond to competitor moves → use generate_competitive_analysis
-3. Always provide follow-up assistance suggestions → use generate_assistance_suggestions
-
-For assistance suggestions, phrase them from the USER'S perspective since they will be pasted into the chat when clicked. Examples:
-- "Give me more quick wins for this area"
-- "Show me competitive analysis"
-- "I need help with implementation"
-
-Generate a brief, natural intro and then use the appropriate tools to create detailed cards.`;
-
-    console.log("🔧 Invoking LLM for dynamic response generation...");
-    const response = await llmWithTools.invoke([
-      new HumanMessage(systemPrompt),
-      new HumanMessage(dynamicPrompt),
-    ]);
-
-    // Extract intro text from the response
-    const introText = response.content?.toString() || "";
-
-    console.log(
-      "📊 Dynamic response received. Tool calls:",
-      response.tool_calls?.length || 0
-    );
-    console.log(
-      "📝 Generated intro text:",
-      introText.substring(0, 100) + "..."
-    );
-
-    const cards: any[] = [];
-
-    if (response.tool_calls && response.tool_calls.length > 0) {
-      console.log("🛠️ Processing tool calls...");
-      for (const toolCall of response.tool_calls) {
-        console.log(`🔧 Processing tool: ${toolCall.name}`);
-        try {
-          let result;
-          switch (toolCall.name) {
-            // case "generate_action_list": // Disabled
-            //   result = await generateActionListTool.invoke(
-            //     toolCall.args as any
-            //   );
-            //   break;
-            case "generate_quick_wins":
-              result = await generateQuickWinsTool.invoke(toolCall.args as any);
-              break;
-            case "generate_competitive_analysis":
-              result = await generateCompetitiveAnalysisTool.invoke(
-                toolCall.args as any
-              );
-              break;
-            case "generate_assistance_suggestions":
-              result = await generateAssistanceTool.invoke(
-                toolCall.args as any
-              );
-              break;
-          }
-          if (result) {
-            console.log(`✅ Tool ${toolCall.name} executed successfully`);
-            cards.push(result);
-          }
-        } catch (error) {
-          console.error(`❌ Error executing tool ${toolCall.name}:`, error);
-        }
-      }
-    }
-
-    console.log(
-      `🎴 Dynamic response complete. Generated ${cards.length} cards`
-    );
-
-    return {
-      introText: introText.trim(),
-      cards,
-    };
-  } catch (error) {
-    console.error("❌ Error generating dynamic response:", error);
-    return null;
-  }
 };

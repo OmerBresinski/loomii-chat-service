@@ -368,3 +368,73 @@ export const getInsightsByImpact = async (
     throw error;
   }
 };
+
+// Wrapper function for backward compatibility with search endpoint
+export const searchOrionData = async (
+  query: string,
+  options: {
+    searchType?: string;
+    k?: number;
+    includeScores?: boolean;
+    minValue?: number;
+    maxEffort?: number;
+    minRatio?: number;
+  } = {}
+): Promise<any> => {
+  const {
+    searchType = "similarity",
+    k = 3,
+    includeScores = false,
+    minValue = 6,
+    maxEffort = 4,
+    minRatio = 1.5,
+  } = options;
+
+  try {
+    let results: Document[] = [];
+
+    switch (searchType) {
+      case "quickWins":
+        results = await getQuickWins(k, minValue, maxEffort);
+        break;
+      case "highValue":
+        results = await getHighValueActions(k, minValue);
+        break;
+      case "valueEffort":
+        results = await getActionsByValueEffortRatio(k, minRatio);
+        break;
+      case "similarity":
+      default:
+        if (includeScores) {
+          const resultsWithScores = await performSimilaritySearchWithScore(
+            query,
+            k
+          );
+          return {
+            success: true,
+            results: resultsWithScores.map(([doc, score]) => ({
+              document: doc,
+              score,
+            })),
+            searchType,
+            query,
+            timestamp: new Date().toISOString(),
+          };
+        } else {
+          results = await performSimilaritySearch(query, k);
+        }
+        break;
+    }
+
+    return {
+      success: true,
+      results: results.map((doc) => ({ document: doc })),
+      searchType,
+      query,
+      timestamp: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error("❌ Error in searchOrionData:", error);
+    throw error;
+  }
+};
