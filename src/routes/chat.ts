@@ -38,7 +38,7 @@ chatRouter.post(
 
       const llm = createAssistanceLLM();
 
-      const prompt = `You are an expert business analyst and consultant assistant. Based on the user's message, generate helpful follow-up assistance suggestions.
+      const prompt = `You are an expert business analyst and consultant assistant. Based on the message, generate helpful follow-up assistance suggestions.
 
 **IMPORTANT CONTEXT UNDERSTANDING:**
 - You have access to comprehensive business intelligence and market data
@@ -56,7 +56,8 @@ Guidelines for suggestions:
 - Focus on natural next steps or related topics
 - Keep them concise but clear
 - Examples of good suggestions:
-  * "Give me more quick wins for cybersecurity"
+  * "How can I prepare for the conference?"
+  * "Give me more quick wins"
   * "Show me competitive analysis for this market"
   * "I need help with implementation planning"
   * "What should I prioritize next?"
@@ -138,7 +139,7 @@ chatRouter.post("/chat", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Message is required" });
     }
 
-    // Set headers for Server-Sent Events (SSE)
+    // Set headers for proper streaming
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.setHeader("Transfer-Encoding", "chunked");
     res.setHeader("Cache-Control", "no-cache");
@@ -153,24 +154,23 @@ chatRouter.post("/chat", async (req: Request, res: Response) => {
     // Use unified chat service that handles everything
     const stream = await streamChatCompletion(message, conversationId);
 
-    // Handle the ReadableStream properly
-    const reader = stream.getReader();
+    // Handle the Node.js Readable stream properly
+    stream.on("data", (chunk) => {
+      res.write(chunk);
+    });
 
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        // Handle both string and Uint8Array chunks
-        const chunk =
-          typeof value === "string" ? value : new TextDecoder().decode(value);
-        res.write(chunk);
-      }
+    stream.on("end", () => {
       res.end();
-    } catch (error) {
+    });
+
+    stream.on("error", (error) => {
       console.error("Stream error:", error);
-      res.status(500).end();
-    }
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Internal server error" });
+      } else {
+        res.end();
+      }
+    });
   } catch (error) {
     console.error("Chat endpoint error:", error);
     res.status(500).json({ error: "Internal server error" });
