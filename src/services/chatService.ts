@@ -329,7 +329,7 @@ export const streamChatCompletion = async (
 
       if (withCards) {
         // Stream the brief response first
-        const briefResponse = "Let me identify some quick wins for you...";
+        const briefResponse = "Thinking...";
         stream.push(briefResponse);
         setTimeout(() => {
           stream.push("\n\n__METADATA__");
@@ -399,7 +399,7 @@ export const streamChatCompletion = async (
       // Generate cards if this is a brief response
       let generatedCards: any[] = [];
       if (withCards) {
-        const briefResponse = "Let me identify some quick wins for you...";
+        const briefResponse = "Thinking...";
         console.log("generating cards");
         generatedCards = await generateCardsWithLLM(
           message,
@@ -424,7 +424,7 @@ export const streamChatCompletion = async (
         stream.push("__END_METADATA__");
 
         // Update conversation history with the actual content provided to user
-        let fullResponse = "Let me identify some quick wins for you...";
+        let fullResponse = "Thinking...";
         if (generatedCards.length > 0) {
           fullResponse +=
             "\n\nI've provided you with the following quick wins:\n";
