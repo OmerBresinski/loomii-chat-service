@@ -52,7 +52,7 @@ export const data: IResponse = {
           },
         ],
       },
-      impact: "medium",
+      impact: "high",
       links: [
         "https://www.linkedin.com/posts/asperii_asperii-salesforceworldtour-london2025-activity-7334553086817894400-ZmN6",
         "https://www.linkedin.com/posts/asperii_%D7%90%D7%AA%D7%9D-%D7%9C%D7%90-%D7%9E%D7%97%D7%9E%D7%99%D7%A6%D7%99%D7%9D-%D7%90%D7%AA-%D7%96%D7%94-%D7%A0%D7%9B%D7%95%D7%9F-%D7%9B%D7%A0%D7%A1-%D7%94-ai-%D7%A9%D7%9C-activity-7330482413124337664-eWFH",
@@ -131,6 +131,40 @@ export const data: IResponse = {
       //   image_url:
       //     "https://scontent-atl3-2.xx.fbcdn.net/v/t39.35426-6/503813860_1218751043325208_4734092279442494411_n.jpg",
       // },
+    },
+    {
+      company: "Top Vision",
+      homepage: "https://netsuite.top-vision.co.il/",
+      insight: {
+        title: "BlueSnap Partnership for Payments",
+        summary:
+          "Top Vision partnered with BlueSnap to deliver an enhanced, unified global payments experience integrated into NetSuite for Israeli businesses, offering real-time payment data sync, multi-currency support, and actionable reporting.",
+        proposedActions: [
+          {
+            content:
+              "Analyze Top Vision's BlueSnap integration to improve your own payment process automation and user experience.",
+            value: 7,
+            effort: 4,
+          },
+          {
+            content:
+              "Consider similar partnerships or implement global payment platforms with real-time ERP integration.",
+            value: 8,
+            effort: 6,
+          },
+          {
+            content:
+              "Develop targeted marketing campaigns highlighting seamless payment experiences to attract NetSuite users.",
+            value: 6,
+            effort: 3,
+          },
+        ],
+      },
+      impact: "high",
+      links: [
+        "https://www.linkedin.com/posts/bluesnap_%D7%A9%D7%99%D7%AA%D7%95%D7%A3-%D7%A4%D7%A2%D7%95%D7%9C%D7%94-%D7%97%D7%93%D7%A9-%D7%91%D7%93%D7%A8%D7%9A-%D7%9C%D7%99%D7%99%D7%A2%D7%95%D7%9C-%D7%97%D7%95%D7%95%D7%99%D7%99%D7%AA-%D7%94%D7%AA%D7%A9%D7%9C%D7%95%D7%9E%D7%99%D7%9D-activity-7336287413738070018-6fZh",
+        "https://www.linkedin.com/posts/top-vision-fusion-oracle_%D7%A9%D7%99%D7%AA%D7%95%D7%A3-%D7%A4%D7%A2%D7%95%D7%9C%D7%94-%D7%97%D7%93%D7%A9-%D7%91%D7%93%D7%A8%D7%9A-%D7%9C%D7%99%D7%99%D7%A2%D7%95%D7%9C-%D7%97%D7%95%D7%95%D7%99%D7%99%D7%AA-%D7%94%D7%AA%D7%A9%D7%9C%D7%95%D7%9E%D7%99%D7%9D-activity-7333411530991939585-FAQ5",
+      ],
     },
     {
       company: "Elad Software Systems",
