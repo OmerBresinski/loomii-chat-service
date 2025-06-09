@@ -91,20 +91,13 @@ const createLLMWithTools = () => {
   return llm.bindTools([generateQuickWinsTool]);
 };
 
-// Enhanced query analysis using LLM to detect specific search intents
+// Enhanced query analysis using LLM to detect if similarity search is needed
 const analyzeQuery = async (
   query: string
 ): Promise<{
-  searchType:
-    | "similarity"
-    | "company"
-    | "impact"
-    | "quickWins"
-    | "highValue"
-    | "valueEffort"
-    | "competitive"
-    | "general";
-  searchTerm?: string;
+  needsSearch: boolean;
+  searchType?: string | null;
+  searchTerm?: string | null;
   k?: number;
 }> => {
   try {
@@ -115,38 +108,49 @@ const analyzeQuery = async (
       openAIApiKey: process.env.OPENAI_API_KEY,
     });
 
-    const analysisPrompt = `You are analyzing a user's query to determine the best search strategy for market intelligence data.
+    const analysisPrompt = `You are analyzing a user's query to determine if it needs any market intelligence data or similarity search.
 
 User query: "${query}"
 
-Analyze the query and determine the best search approach:
+Analyze if this query needs ANY kind of search or market intelligence:
 
-1. "quickWins" - User wants quick wins, immediate actions, low-effort high-impact opportunities
-2. "highValue" - User wants high-value actions regardless of effort
-3. "valueEffort" - User wants actions with good value-to-effort ratios, ROI, efficiency
-4. "company" - User asks about a specific company (extract company name)
-5. "impact" - User asks about high/medium/low impact items specifically
-6. "competitive" - User asks about competitors, competitive analysis, market positioning, conferences, events
-7. "similarity" - General questions that need broad similarity search
+NO SEARCH NEEDED for:
+- Simple greetings: "hello", "hi", "hey", "good morning"
+- Thanks/acknowledgments: "thanks", "thank you", "thx"
+- Simple responses: "yes", "no", "ok", "okay", "sure"
+- Casual conversation: "how are you", "what's up", "nice", "cool"
+- Goodbyes: "bye", "goodbye", "see you later"
 
-For competitive queries, conferences, events, or broad market questions, use more results (k=10-15).
-For specific company queries, use moderate results (k=7-10).
-For quick wins/high value, use standard results (k=5).
+SEARCH NEEDED for:
+- Business questions: "give me quick wins", "show me opportunities"
+- Company inquiries: "what is Microsoft doing", "tell me about Apple"
+- Market analysis: "who are my competitors", "market trends"
+- Strategic requests: "high impact actions", "competitive analysis"
+- Any request for business insights, data, or recommendations
+
+If SEARCH is needed, also determine the type:
+- "quickWins" - for quick wins, immediate actions
+- "company" - for specific company questions (extract company name)
+- "competitive" - for competitor/market analysis
+- "similarity" - for general business questions
 
 Respond in this exact JSON format:
 {
-  "searchType": "one of the types above",
-  "searchTerm": "company name if company type, impact level if impact type, or null",
-  "k": number_of_results_to_fetch
+  "needsSearch": true_or_false,
+  "searchType": "type_if_search_needed_or_null",
+  "searchTerm": "company_name_if_applicable_or_null",
+  "k": number_of_results_if_search_needed_or_0
 }
 
 Examples:
-- "Give me quick wins" → {"searchType": "quickWins", "searchTerm": null, "k": 5}
-- "What is Microsoft doing?" → {"searchType": "company", "searchTerm": "microsoft", "k": 8}
-- "Who are my competitors?" → {"searchType": "competitive", "searchTerm": null, "k": 12}
-- "Which competitors are attending conferences?" → {"searchType": "competitive", "searchTerm": null, "k": 15}
-- "High impact actions" → {"searchType": "impact", "searchTerm": "high", "k": 5}
-- "Tell me about the market" → {"searchType": "similarity", "searchTerm": null, "k": 10}`;
+- "Hello" → {"needsSearch": false, "searchType": null, "searchTerm": null, "k": 0}
+- "Thanks!" → {"needsSearch": false, "searchType": null, "searchTerm": null, "k": 0}
+- "How are you?" → {"needsSearch": false, "searchType": null, "searchTerm": null, "k": 0}
+- "Give me quick wins" → {"needsSearch": true, "searchType": "quickWins", "searchTerm": null, "k": 5}
+- "What is Microsoft doing?" → {"needsSearch": true, "searchType": "company", "searchTerm": "microsoft", "k": 8}
+- "Who are my competitors?" → {"needsSearch": true, "searchType": "competitive", "searchTerm": null, "k": 12}
+
+Respond with only the JSON, nothing else.`;
 
     const response = await analysisLLM.invoke([
       new HumanMessage(analysisPrompt),
@@ -154,21 +158,29 @@ Examples:
     const responseContent = response.content?.toString() || "";
 
     try {
-      const analysis = JSON.parse(responseContent);
-      console.log("🔍 LLM Query analysis:", analysis);
+      // Clean the response by removing markdown code blocks if present
+      const cleanedResponse = responseContent
+        .replace(/```json\s*/gi, "")
+        .replace(/```\s*/g, "")
+        .trim();
+
+      const analysis = JSON.parse(cleanedResponse);
+      console.log("🔍 LLM Search Decision:", analysis);
       return analysis;
     } catch (parseError) {
       console.error(
         "❌ Error parsing query analysis, using fallback:",
-        parseError
+        parseError,
+        "Raw response:",
+        responseContent
       );
-      // Fallback to broader similarity search
-      return { searchType: "similarity", k: 10 };
+      // Fallback to no search for safety
+      return { needsSearch: false, searchType: null, searchTerm: null, k: 0 };
     }
   } catch (error) {
     console.error("❌ Error in query analysis:", error);
-    // Fallback to broader similarity search
-    return { searchType: "similarity", k: 10 };
+    // Fallback to no search for safety
+    return { needsSearch: false, searchType: null, searchTerm: null, k: 0 };
   }
 };
 
@@ -331,52 +343,58 @@ export const streamChatCompletion = async (
       const queryAnalysis = await analyzeQuery(message);
       console.log("query analysis done", queryAnalysis.searchType);
 
-      // Vector store is already initialized at server startup
       let searchResults: any[] = [];
 
-      // Get relevant data based on query type
-      switch (queryAnalysis.searchType) {
-        case "quickWins":
-          searchResults = await getQuickWins(queryAnalysis.k || 5);
-          break;
-        case "highValue":
-          searchResults = await getHighValueActions(queryAnalysis.k || 5);
-          break;
-        case "valueEffort":
-          searchResults = await getActionsByValueEffortRatio(
-            queryAnalysis.k || 5
-          );
-          break;
-        case "company":
-          if (queryAnalysis.searchTerm) {
-            searchResults = await getInsightsByCompany(
-              queryAnalysis.searchTerm
+      // Only perform vector search if needed
+      if (queryAnalysis.needsSearch) {
+        console.log("🔍 Performing vector search...");
+
+        // Get relevant data based on query type
+        switch (queryAnalysis.searchType) {
+          case "quickWins":
+            searchResults = await getQuickWins(queryAnalysis.k || 5);
+            break;
+          case "highValue":
+            searchResults = await getHighValueActions(queryAnalysis.k || 5);
+            break;
+          case "valueEffort":
+            searchResults = await getActionsByValueEffortRatio(
+              queryAnalysis.k || 5
             );
-          }
-          break;
-        case "impact":
-          if (queryAnalysis.searchTerm) {
-            searchResults = await getInsightsByImpact(
-              queryAnalysis.searchTerm as "high" | "medium" | "low"
+            break;
+          case "company":
+            if (queryAnalysis.searchTerm) {
+              searchResults = await getInsightsByCompany(
+                queryAnalysis.searchTerm
+              );
+            }
+            break;
+          case "impact":
+            if (queryAnalysis.searchTerm) {
+              searchResults = await getInsightsByImpact(
+                queryAnalysis.searchTerm as "high" | "medium" | "low"
+              );
+            }
+            break;
+          case "competitive":
+            // For competitive queries, use broad similarity search with more results
+            searchResults = await performSimilaritySearch(
+              message,
+              queryAnalysis.k || 12
             );
-          }
-          break;
-        case "competitive":
-          // For competitive queries, use broad similarity search with more results
-          searchResults = await performSimilaritySearch(
-            message,
-            queryAnalysis.k || 12
-          );
-          break;
-        case "similarity":
-        default:
-          searchResults = await performSimilaritySearch(
-            message,
-            queryAnalysis.k || 10
-          );
-          break;
+            break;
+          case "similarity":
+          default:
+            searchResults = await performSimilaritySearch(
+              message,
+              queryAnalysis.k || 10
+            );
+            break;
+        }
+        console.log("search results done");
+      } else {
+        console.log("🚀 Skipping vector search for simple conversation");
       }
-      console.log("search results done");
 
       // Generate cards if this is a brief response
       let generatedCards: any[] = [];
@@ -438,7 +456,7 @@ export const streamChatCompletion = async (
       // Create system prompt with market intelligence context
       const systemPrompt = createSystemPrompt(
         formattedResults,
-        queryAnalysis.searchType
+        queryAnalysis.searchType || "general"
       );
 
       // Stream the response
