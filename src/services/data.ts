@@ -30,7 +30,7 @@ export const data: IResponse = {
       insight: {
         title: "Salesforce AI Agent Conference Sponsorship",
         summary:
-          "Asperii is actively participating in major Salesforce events such as the Agentforce World Tour in Tel Aviv and London, showcasing their expertise in Field Service, Service Cloud, Health Cloud, MuleSoft, and AgentForce solutions. They also use networking and after-event gatherings to deepen client and partner relationships.",
+          "Asperii is actively participating in major Salesforce events, including the Agentforce World Tour happening in Tel Aviv on June 10 and in London, showcasing their expertise in Field Service, Service Cloud, Health Cloud, MuleSoft, and AgentForce solutions. They also leverage networking opportunities and after-event gatherings to deepen relationships with clients and partners.",
         proposedActions: [
           {
             content:
