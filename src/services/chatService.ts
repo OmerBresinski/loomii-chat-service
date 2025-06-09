@@ -75,11 +75,21 @@ const generateQuickWinsTool = tool(
       items: z
         .array(
           z.object({
-            title: z.string(),
-            description: z.string().optional(),
-            value: z.number().optional().describe("Value score 1-10"),
-            effort: z.number().optional().describe("Effort score 1-10"),
-            ratio: z.number().optional().describe("Value to effort ratio"),
+            title: z
+              .string()
+              .describe("Title for quick win, between 6-8 words"),
+            priority: z
+              .string()
+              .describe("Priority level, one of: low, medium, high"),
+            reason: z
+              .string()
+              .describe("Why this is important, concise 2-3 sentences"),
+            nextSteps: z
+              .string()
+              .describe("What to do next, concise 2-3 sentences"),
+            impact: z
+              .string()
+              .describe("What impact will it have, concise 2-3 sentences"),
           })
         )
         .describe("List of quick win items"),
@@ -175,7 +185,7 @@ const createLLMWithTools = () => {
   return llm.bindTools([
     // generateActionListTool, // Disabled for now
     generateQuickWinsTool,
-    generateCompetitiveAnalysisTool,
+    // generateCompetitiveAnalysisTool,
     generateAssistanceTool,
   ]);
 };
@@ -533,10 +543,10 @@ Generate a brief, natural introductory response (1-2 sentences) that:
 - Provides immediate value without requesting more information
 
 Examples of good intros:
-- "I can help you with that! Here are some actionable recommendations:"
-- "Great question! Let me provide you with some strategic insights:"
-- "Absolutely! I've identified several opportunities for you:"
-- "Based on the available data, here are some high-impact actions you can take:"
+- I can help you with that! Here are some actionable recommendations:
+- Great question! Let me provide you with some strategic insights:
+- Absolutely! I've identified several opportunities for you:
+- Based on the available data, here are some high-impact actions you can take:
 
 Generate only the intro text, nothing else.`;
 
@@ -755,10 +765,10 @@ Guidelines for the intro:
 - Don't repeat information that will be in the cards
 - Provide immediate value without asking for more details
 - Examples of good intros:
-  * "I can help you with that! Here are some actionable recommendations:"
-  * "Great question! Let me provide you with some strategic insights:"
-  * "Absolutely! I've identified several opportunities for you:"
-  * "Based on best practices, here are some high-impact actions you can take:"
+  * I can help you with that! Here are some actionable recommendations:
+  * Great question! Let me provide you with some strategic insights:
+  * Absolutely! I've identified several opportunities for you:
+  * Based on best practices, here are some high-impact actions you can take:
 
 Use the tools to generate cards when:
 1. User asks for immediate actions, quick wins, or things to do today/soon → use generate_quick_wins  

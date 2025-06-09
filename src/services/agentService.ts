@@ -76,19 +76,29 @@ const generateQuickWinsTool = tool(
     description:
       "Generate a quick wins card when the user asks for immediate actions or things to do today/soon",
     schema: z.object({
-      title: z.string().describe("Title for the quick wins"),
+      title: z.string().describe("Title for quick wins"),
       description: z.string().optional().describe("Optional description"),
       items: z
         .array(
           z.object({
-            title: z.string(),
-            description: z.string(),
-            value: z.number().min(1).max(10).describe("Value score 1-10"),
-            effort: z.number().min(1).max(10).describe("Effort score 1-10"),
-            ratio: z.number().describe("Value-to-effort ratio"),
+            title: z
+              .string()
+              .describe("Title for quick win, between 6-8 words"),
+            priority: z
+              .string()
+              .describe("Priority level, one of: low, medium, high"),
+            reason: z
+              .string()
+              .describe("Why this is important, concise 2-3 sentences"),
+            nextSteps: z
+              .string()
+              .describe("What to do next, concise 2-3 sentences"),
+            impact: z
+              .string()
+              .describe("What impact will it have, concise 2-3 sentences"),
           })
         )
-        .describe("List of quick win items with value/effort scores"),
+        .describe("List of quick win items"),
     }),
   }
 );
@@ -927,7 +937,7 @@ const createLLMWithTools = () => {
 
   return llm.bindTools([
     generateQuickWinsTool,
-    generateCompetitiveAnalysisTool,
+    // generateCompetitiveAnalysisTool,
     generateAssistanceTool,
   ]);
 };
