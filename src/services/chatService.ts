@@ -313,6 +313,7 @@ export const streamChatCompletion = async (
 
       // First, determine if we should use brief response
       const withCards = await shouldStreamCards(message, []);
+      console.log({ withCards });
 
       if (withCards) {
         // Stream the brief response first
@@ -326,8 +327,9 @@ export const streamChatCompletion = async (
       // Stream metadata start to show processing
 
       // Analyze query to determine search strategy
+      console.log("analyzing query");
       const queryAnalysis = await analyzeQuery(message);
-      console.log("🔍 Query analysis:", queryAnalysis);
+      console.log("query analysis done", queryAnalysis.searchType);
 
       // Vector store is already initialized at server startup
       let searchResults: any[] = [];
@@ -374,16 +376,19 @@ export const streamChatCompletion = async (
           );
           break;
       }
+      console.log("search results done");
 
       // Generate cards if this is a brief response
       let generatedCards: any[] = [];
       if (withCards) {
         const briefResponse = "Let me identify some quick wins for you...";
+        console.log("generating cards");
         generatedCards = await generateCardsWithLLM(
           message,
           briefResponse,
           searchResults
         );
+        console.log("cards generated");
       }
 
       // Send combined metadata with search results and cards
@@ -399,6 +404,31 @@ export const streamChatCompletion = async (
         };
         stream.push(JSON.stringify(metadata));
         stream.push("__END_METADATA__");
+
+        // Update conversation history with the actual content provided to user
+        let fullResponse = "Let me identify some quick wins for you...";
+        if (generatedCards.length > 0) {
+          fullResponse +=
+            "\n\nI've provided you with the following quick wins:\n";
+          generatedCards.forEach((card, index) => {
+            if (card.type === "quick-wins" && card.items) {
+              card.items.forEach((item: any, itemIndex: number) => {
+                fullResponse += `\n${itemIndex + 1}. ${
+                  item.title
+                }\n   Priority: ${item.priority}\n   Reason: ${item.reason}\n`;
+              });
+            }
+          });
+        }
+
+        // Add comprehensive AI response to conversation history
+        const aiMessage = new AIMessage(fullResponse);
+        history.push(aiMessage);
+        updateConversationHistory(conversationId, history);
+
+        console.log("🏁 Chat stream ending (with cards)");
+        stream.push(null);
+        return;
       }
 
       // Format search results for LLM context
@@ -446,16 +476,9 @@ const streamUnifiedResponse = async (
   let fullResponse = "";
 
   if (shouldUseBriefResponse) {
-    // Brief response was already sent, just set it for history
-    const briefResponse = "Let me identify some quick wins for you...";
-    fullResponse = briefResponse;
-
-    // Add AI response to conversation history
-    const aiMessage = new AIMessage(fullResponse);
-    history.push(aiMessage);
-    updateConversationHistory(conversationId, history);
-
-    // Cards were already generated and sent in the main function
+    // Brief response and cards were already handled in main function
+    // Conversation history was already updated there
+    return;
   } else {
     // Create system message
     const systemMessage = new AIMessage(systemPrompt);
@@ -486,24 +509,7 @@ const streamUnifiedResponse = async (
     history.push(aiMessage);
     updateConversationHistory(conversationId, history);
 
-    // Generate cards for non-brief responses
-    const generatedCards = await generateCardsWithLLM(
-      message,
-      fullResponse,
-      searchResults
-    );
-
-    // Send generated cards as metadata if they add value
-    if (generatedCards.length > 0) {
-      const metadata = {
-        timestamp: new Date().toISOString(),
-        cards: generatedCards,
-        replaceText: false,
-      };
-      stream.push("\n\n__METADATA__");
-      stream.push(JSON.stringify(metadata));
-      stream.push("__END_METADATA__");
-    }
+    // Cards are only generated in the main function, not here
   }
 };
 
