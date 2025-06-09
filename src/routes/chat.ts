@@ -64,6 +64,8 @@ Guidelines for suggestions:
   * "Help me create a timeline for these actions"
   * "Show me the risks and mitigation strategies"
 
+*Should be no longer than 8 words per suggestion*
+
 Respond with a JSON object in this exact format:
 {
   "title": "What would you like to explore next?",

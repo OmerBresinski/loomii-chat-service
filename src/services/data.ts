@@ -25,10 +25,45 @@ export type IResponse = {
 export const data: IResponse = {
   aiInsights: [
     {
+      company: "Asperii",
+      homepage: "https://www.asperii.com",
+      insight: {
+        title: "Salesforce AI Agent Conference Sponsorship",
+        summary:
+          "Asperii is actively participating in major Salesforce events such as the Agentforce World Tour in Tel Aviv and London, showcasing their expertise in Field Service, Service Cloud, Health Cloud, MuleSoft, and AgentForce solutions. They also use networking and after-event gatherings to deepen client and partner relationships.",
+        proposedActions: [
+          {
+            content:
+              "Attend or monitor Asperii's participation in Salesforce global tours to stay updated on their solution offerings and innovations.",
+            value: 7,
+            effort: 3,
+          },
+          {
+            content:
+              "Evaluate and adopt complementary technologies in Field Service and AgentForce to enhance your Salesforce practice.",
+            value: 7,
+            effort: 6,
+          },
+          {
+            content:
+              "Organize client-facing events around major Salesforce conferences to build brand and customer engagement.",
+            value: 5,
+            effort: 4,
+          },
+        ],
+      },
+      impact: "medium",
+      links: [
+        "https://www.linkedin.com/posts/asperii_asperii-salesforceworldtour-london2025-activity-7334553086817894400-ZmN6",
+        "https://www.linkedin.com/posts/asperii_%D7%90%D7%AA%D7%9D-%D7%9C%D7%90-%D7%9E%D7%97%D7%9E%D7%99%D7%A6%D7%99%D7%9D-%D7%90%D7%AA-%D7%96%D7%94-%D7%A0%D7%9B%D7%95%D7%9F-%D7%9B%D7%A0%D7%A1-%D7%94-ai-%D7%A9%D7%9C-activity-7330482413124337664-eWFH",
+        "https://www.linkedin.com/posts/asperii_%D7%A9%D7%A0%D7%9E%D7%A9%D7%99%D7%9A-%D7%9C%D7%91%D7%A0%D7%95%D7%AA-%D7%90%D7%AA-%D7%94%D7%91%D7%99%D7%AA-%D7%A9%D7%9C%D7%A0%D7%95-%D7%A9%D7%A0%D7%9E%D7%A9%D7%99%D7%9A-%D7%9C%D7%A6%D7%9E%D7%95%D7%97-activity-7323390703273697281-nqbr",
+      ],
+    },
+    {
       company: "Elad Software Systems",
       homepage: "https://eladsoft.com",
       insight: {
-        title: "AI Agent Conference Sponsorship",
+        title: "Salesforce AI Agent Conference Sponsorship",
         summary:
           "Elad Software Systems is sponsoring and speaking at the Agentforce World Tour 2025, a Salesforce annual conference highlighting autonomous AI agents transforming service, sales and marketing workflows.",
         proposedActions: [
@@ -56,6 +91,46 @@ export const data: IResponse = {
       links: [
         "https://www.linkedin.com/posts/elad-systems_%D7%90%D7%A1%D7%98%D7%A8%D7%98%D7%92%D7%99%D7%94-%D7%98%D7%9B%D7%A0%D7%95%D7%9C%D7%95%D7%92%D7%99%D7%AA-%D7%A4%D7%95%D7%92%D7%A9%D7%AA-%D7%A4%D7%A8%D7%A7%D7%98%D7%99%D7%A7%D7%94-%D7%91%D7%A9%D7%98%D7%97-%D7%91-agentforce-activity-7336312623644180482-KD3R?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAFt9d-ABZJsvoISfvSh1A6iTFRaqKszi6vY",
       ],
+    },
+    {
+      company: "Elad Software Systems",
+      homepage: "https://eladsoft.com",
+      insight: {
+        title: "Agentic AI Campaign – Social Push for Autonomous Tech",
+        summary:
+          "Elad Software Systems launched a campaign on Facebook and Instagram promoting their vision of 'Agentic AI' – smart autonomous agents that act proactively across service, marketing, and sales. In a new Ynet article, company leaders describe how this next-gen AI transforms real business touchpoints, from online stores to service centers.",
+        proposedActions: [
+          {
+            content:
+              "Use Elad’s messaging as a reference to shape your own AI communication — focusing on proactive, goal-driven features that customers can relate to.",
+            value: 7,
+            effort: 3,
+          },
+          {
+            content:
+              "Track engagement and feedback on Elad's campaign to gauge how local markets respond to autonomous AI messaging.",
+            value: 6,
+            effort: 4,
+          },
+          {
+            content:
+              "Develop a social media mini-series or ad concept around real use cases of AI agents improving customer experience, inspired by Elad’s storytelling style.",
+            value: 8,
+            effort: 5,
+          },
+        ],
+      },
+      impact: "medium",
+      links: [
+        "https://www.ynet.co.il/economy/article/sklqppiakg",
+        "https://www.facebook.com/photo/?fbid=1218751043325208&set=a.464634349877758",
+      ],
+      // campaign: {
+      //   platforms: ["Facebook", "Instagram"],
+      //   country: "Israel",
+      //   image_url:
+      //     "https://scontent-atl3-2.xx.fbcdn.net/v/t39.35426-6/503813860_1218751043325208_4734092279442494411_n.jpg",
+      // },
     },
     {
       company: "Elad Software Systems",
@@ -385,41 +460,6 @@ export const data: IResponse = {
       impact: "high",
       links: [
         "https://www.linkedin.com/posts/asperii_%D7%91%D7%A2%D7%95%D7%9C%D7%9E%D7%95%D7%AA-%D7%94%D7%91%D7%A8%D7%99%D7%90%D7%95%D7%AA-%D7%90%D7%99%D7%9F-%D7%A2%D7%A8%D7%9A-%D7%97%D7%A9%D7%95%D7%91-%D7%99%D7%95%D7%AA%D7%A8-%D7%9E%D7%94%D7%98%D7%99%D7%A4%D7%95%D7%9C-activity-7336036529514917889-uUFz",
-      ],
-    },
-    {
-      company: "Asperii",
-      homepage: "https://www.asperii.com",
-      insight: {
-        title: "Global Salesforce Event Participation",
-        summary:
-          "Asperii is actively participating in major Salesforce events such as the Agentforce World Tour in Tel Aviv and London, showcasing their expertise in Field Service, Service Cloud, Health Cloud, MuleSoft, and AgentForce solutions. They also use networking and after-event gatherings to deepen client and partner relationships.",
-        proposedActions: [
-          {
-            content:
-              "Attend or monitor Asperii's participation in Salesforce global tours to stay updated on their solution offerings and innovations.",
-            value: 6,
-            effort: 3,
-          },
-          {
-            content:
-              "Evaluate and adopt complementary technologies in Field Service and AgentForce to enhance your Salesforce practice.",
-            value: 7,
-            effort: 6,
-          },
-          {
-            content:
-              "Organize client-facing events around major Salesforce conferences to build brand and customer engagement.",
-            value: 5,
-            effort: 4,
-          },
-        ],
-      },
-      impact: "medium",
-      links: [
-        "https://www.linkedin.com/posts/asperii_asperii-salesforceworldtour-london2025-activity-7334553086817894400-ZmN6",
-        "https://www.linkedin.com/posts/asperii_%D7%90%D7%AA%D7%9D-%D7%9C%D7%90-%D7%9E%D7%97%D7%9E%D7%99%D7%A6%D7%99%D7%9D-%D7%90%D7%AA-%D7%96%D7%94-%D7%A0%D7%9B%D7%95%D7%9F-%D7%9B%D7%A0%D7%A1-%D7%94-ai-%D7%A9%D7%9C-activity-7330482413124337664-eWFH",
-        "https://www.linkedin.com/posts/asperii_%D7%A9%D7%A0%D7%9E%D7%A9%D7%99%D7%9A-%D7%9C%D7%91%D7%A0%D7%95%D7%AA-%D7%90%D7%AA-%D7%94%D7%91%D7%99%D7%AA-%D7%A9%D7%9C%D7%A0%D7%95-%D7%A9%D7%A0%D7%9E%D7%A9%D7%99%D7%9A-%D7%9C%D7%A6%D7%9E%D7%95%D7%97-activity-7323390703273697281-nqbr",
       ],
     },
     {
