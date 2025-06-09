@@ -10,7 +10,6 @@ import {
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import {
-  initializeVectorStore,
   performSimilaritySearch,
   getQuickWins,
   getHighValueActions,
@@ -313,26 +312,24 @@ export const streamChatCompletion = async (
       console.log("🤖 Processing message:", message);
 
       // First, determine if we should use brief response
-      const shouldUseBriefResponse = await analyzeForBriefResponse(message, []);
+      const withCards = await shouldStreamCards(message, []);
 
-      if (shouldUseBriefResponse) {
+      if (withCards) {
         // Stream the brief response first
         const briefResponse = "Let me identify some quick wins for you...";
-        for (const char of briefResponse) {
-          stream.push(char);
-        }
+        stream.push(briefResponse);
+        setTimeout(() => {
+          stream.push("\n\n__METADATA__");
+        }, 500);
       }
 
       // Stream metadata start to show processing
-      stream.push("\n\n__METADATA__");
 
       // Analyze query to determine search strategy
       const queryAnalysis = await analyzeQuery(message);
       console.log("🔍 Query analysis:", queryAnalysis);
 
-      // Initialize vector store and get relevant data
-      await initializeVectorStore();
-
+      // Vector store is already initialized at server startup
       let searchResults: any[] = [];
 
       // Get relevant data based on query type
@@ -380,7 +377,7 @@ export const streamChatCompletion = async (
 
       // Generate cards if this is a brief response
       let generatedCards: any[] = [];
-      if (shouldUseBriefResponse) {
+      if (withCards) {
         const briefResponse = "Let me identify some quick wins for you...";
         generatedCards = await generateCardsWithLLM(
           message,
@@ -390,17 +387,19 @@ export const streamChatCompletion = async (
       }
 
       // Send combined metadata with search results and cards
-      const metadata = {
-        timestamp: new Date().toISOString(),
-        searchComplete: true,
-        resultsCount: searchResults.length,
-        ...(generatedCards.length > 0 && {
-          cards: generatedCards,
-          replaceText: false,
-        }),
-      };
-      stream.push(JSON.stringify(metadata));
-      stream.push("__END_METADATA__");
+      if (withCards) {
+        const metadata = {
+          timestamp: new Date().toISOString(),
+          searchComplete: true,
+          resultsCount: searchResults.length,
+          ...(generatedCards.length > 0 && {
+            cards: generatedCards,
+            replaceText: false,
+          }),
+        };
+        stream.push(JSON.stringify(metadata));
+        stream.push("__END_METADATA__");
+      }
 
       // Format search results for LLM context
       const formattedResults = formatSearchResults(searchResults);
@@ -420,7 +419,7 @@ export const streamChatCompletion = async (
         conversationId,
         systemPrompt,
         searchResults,
-        shouldUseBriefResponse
+        withCards
       );
 
       console.log("🏁 Chat stream ending");
@@ -509,7 +508,7 @@ const streamUnifiedResponse = async (
 };
 
 // LLM-based analysis to determine if we should use a brief response
-const analyzeForBriefResponse = async (
+const shouldStreamCards = async (
   message: string,
   searchResults: any[]
 ): Promise<boolean> => {
