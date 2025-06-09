@@ -184,9 +184,9 @@ const createLLMWithTools = () => {
 
   return llm.bindTools([
     // generateActionListTool, // Disabled for now
-    generateQuickWinsTool,
+    // generateQuickWinsTool,
     // generateCompetitiveAnalysisTool,
-    generateAssistanceTool,
+    // generateAssistanceTool,
   ]);
 };
 

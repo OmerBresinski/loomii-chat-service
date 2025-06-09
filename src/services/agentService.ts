@@ -938,7 +938,7 @@ const createLLMWithTools = () => {
   return llm.bindTools([
     generateQuickWinsTool,
     // generateCompetitiveAnalysisTool,
-    generateAssistanceTool,
+    // generateAssistanceTool,
   ]);
 };
 
