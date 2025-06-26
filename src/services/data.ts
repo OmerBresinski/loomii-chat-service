@@ -25,170 +25,114 @@ export type IResponse = {
 export const data: IResponse = {
   aiInsights: [
     {
-      company: "Asperii",
-      homepage: "https://www.asperii.com",
+      company: "Elad Software Systems",
+      homepage: "https://eladsoft.com",
       insight: {
-        title: "Salesforce AI Agent Conference Sponsorship",
+        title: "Aggressive AI Healthcare Expansion",
         summary:
-          "Asperii is actively participating in major Salesforce events, including the Agentforce World Tour happening in Tel Aviv on June 10 and in London, showcasing their expertise in Field Service, Service Cloud, Health Cloud, MuleSoft, and AgentForce solutions. They also leverage networking opportunities and after-event gatherings to deepen relationships with clients and partners.",
+          "Elad is rapidly promoting new AI tools for hospitals—showcasing workflow-automation projects at Israel’s Digital Health Conference (Jun 26 2025) and unveiling an anesthesiology assistant with Ichilov at AWS events—signaling a strategic push to dominate healthcare AI.",
         proposedActions: [
           {
             content:
-              "Attend or monitor Asperii's participation in Salesforce global tours to stay updated on their solution offerings and innovations.",
-            value: 7,
+              "Audit your healthcare accounts to spot 2–3 quick AI workflow wins and launch pilot automations before Q4.",
+            value: 6,
             effort: 3,
           },
           {
             content:
-              "Evaluate and adopt complementary technologies in Field Service and AgentForce to enhance your Salesforce practice.",
+              "Publish a results-focused case study on your existing clinical-AI deployment to counter Elad’s publicity and boost credibility.",
+            value: 7,
+            effort: 4,
+          },
+          {
+            content:
+              "Co-host a webinar with a leading hospital IT director within 30 days to attract the same audience Elad is targeting.",
+            value: 8,
+            effort: 5,
+          },
+        ],
+      },
+      impact: "high",
+      links: [
+        "https://www.linkedin.com/posts/elad-systems_%D7%95%D7%A2%D7%99%D7%93%D7%AA-digital-health-%D7%94%D7%91%D7%9E%D7%94-%D7%9C%D7%A4%D7%AA%D7%A8%D7%95%D7%A0%D7%95%D7%AA-%D7%94-ai-activity-7343920985231757313-YO2T",
+        "https://www.linkedin.com/posts/elad-systems_%D7%9B%D7%9C%D7%99-%D7%94-ai-%D7%9E%D7%92%D7%99%D7%A2%D7%99%D7%9D-%D7%9C%D7%97%D7%93%D7%A8%D7%99-%D7%94%D7%A0%D7%99%D7%AA%D7%95%D7%97-%D7%A9%D7%9C-%D7%90%D7%99%D7%9B%D7%99%D7%9C%D7%95%D7%91-activity-7342875587050418176-hSQp",
+      ],
+    },
+    {
+      company: "Elad Software Systems",
+      homepage: "https://eladsoft.com",
+      insight: {
+        title: "Web Traffic Decline Opportunity",
+        summary:
+          "SimilarWeb (scraped Jun 26 2025) shows eladsoft.com traffic dropped 17.3% month-on-month, relies almost entirely on Israeli organic searches and LinkedIn referrals—revealing limited ongoing SEO or paid-media investment.",
+        proposedActions: [
+          {
+            content:
+              "Bid on Hebrew and English PPC terms such as “פתרונות AI בריאות” and “AI healthcare Israel” to capture search demand Elad is missing.",
+            value: 5,
+            effort: 2,
+          },
+          {
+            content:
+              "Publish an SEO-optimised blog series on healthcare-AI ROI to outrank Elad on core industry keywords within 60 days.",
+            value: 6,
+            effort: 4,
+          },
+          {
+            content:
+              "Launch LinkedIn retargeting ads aimed at Israeli tech decision-makers aged 25-44, promoting your latest healthcare-AI case study.",
+            value: 7,
+            effort: 5,
+          },
+        ],
+      },
+      impact: "medium",
+      links: ["https://similarweb.com/website/eladsoft.com"],
+    },
+    {
+      company: "Elad Software Systems",
+      homepage: "https://eladsoft.com",
+      insight: {
+        title: "IBM watsonx Partnership Move",
+        summary:
+          "On Jun 12 2025 Elad announced that IBM Israel selected it to deploy watsonx and broader IBM software, indicating a shift toward enterprise AI platform collaborations.",
+        proposedActions: [
+          {
+            content:
+              "Engage IBM PartnerWorld to explore co-selling opportunities or gain watsonx certification to match Elad’s new capability.",
             value: 7,
             effort: 6,
           },
           {
             content:
-              "Organize client-facing events around major Salesforce conferences to build brand and customer engagement.",
+              "Update sales decks to emphasise your vendor-neutral or open-source AI stack as an alternative to IBM-centric solutions.",
+            value: 6,
+            effort: 3,
+          },
+          {
+            content:
+              "Monitor public tenders mentioning watsonx and enter early to position against forthcoming Elad-IBM bids.",
             value: 5,
             effort: 4,
           },
         ],
       },
-      impact: "high",
-      links: [
-        "https://www.linkedin.com/posts/asperii_asperii-salesforceworldtour-london2025-activity-7334553086817894400-ZmN6",
-        "https://www.linkedin.com/posts/asperii_%D7%90%D7%AA%D7%9D-%D7%9C%D7%90-%D7%9E%D7%97%D7%9E%D7%99%D7%A6%D7%99%D7%9D-%D7%90%D7%AA-%D7%96%D7%94-%D7%A0%D7%9B%D7%95%D7%9F-%D7%9B%D7%A0%D7%A1-%D7%94-ai-%D7%A9%D7%9C-activity-7330482413124337664-eWFH",
-        "https://www.linkedin.com/posts/asperii_%D7%A9%D7%A0%D7%9E%D7%A9%D7%99%D7%9A-%D7%9C%D7%91%D7%A0%D7%95%D7%AA-%D7%90%D7%AA-%D7%94%D7%91%D7%99%D7%AA-%D7%A9%D7%9C%D7%A0%D7%95-%D7%A9%D7%A0%D7%9E%D7%A9%D7%99%D7%9A-%D7%9C%D7%A6%D7%9E%D7%95%D7%97-activity-7323390703273697281-nqbr",
-      ],
-    },
-    {
-      company: "Elad Software Systems",
-      homepage: "https://eladsoft.com",
-      insight: {
-        title: "Salesforce AI Agent Conference Sponsorship",
-        summary:
-          "Elad Software Systems is sponsoring and speaking at the Agentforce World Tour 2025, a Salesforce annual conference highlighting autonomous AI agents transforming service, sales and marketing workflows.",
-        proposedActions: [
-          {
-            content:
-              "Monitor Elad’s presentations and materials from the Agentforce World Tour to identify emerging AI agent use cases.",
-            value: 7,
-            effort: 3,
-          },
-          {
-            content:
-              "Attend similar Salesforce or AI-focused events to benchmark your own AI roadmap against leading practices.",
-            value: 6,
-            effort: 4,
-          },
-          {
-            content:
-              "Develop an autonomous AI agent feature for your platform, marketing it around proactive task execution and continuous improvement.",
-            value: 9,
-            effort: 8,
-          },
-        ],
-      },
-      impact: "high",
-      links: [
-        "https://www.linkedin.com/posts/elad-systems_%D7%90%D7%A1%D7%98%D7%A8%D7%98%D7%92%D7%99%D7%94-%D7%98%D7%9B%D7%A0%D7%95%D7%9C%D7%95%D7%92%D7%99%D7%AA-%D7%A4%D7%95%D7%92%D7%A9%D7%AA-%D7%A4%D7%A8%D7%A7%D7%98%D7%99%D7%A7%D7%94-%D7%91%D7%A9%D7%98%D7%97-%D7%91-agentforce-activity-7336312623644180482-KD3R?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAFt9d-ABZJsvoISfvSh1A6iTFRaqKszi6vY",
-      ],
-    },
-    {
-      company: "Elad Software Systems",
-      homepage: "https://eladsoft.com",
-      insight: {
-        title: "Agentic AI Campaign – Social Push for Autonomous Tech",
-        summary:
-          "Elad Software Systems launched a campaign on Facebook and Instagram promoting their vision of 'Agentic AI' – smart autonomous agents that act proactively across service, marketing, and sales. In a new Ynet article, company leaders describe how this next-gen AI transforms real business touchpoints, from online stores to service centers.",
-        proposedActions: [
-          {
-            content:
-              "Use Elad’s messaging as a reference to shape your own AI communication — focusing on proactive, goal-driven features that customers can relate to.",
-            value: 7,
-            effort: 3,
-          },
-          {
-            content:
-              "Track engagement and feedback on Elad's campaign to gauge how local markets respond to autonomous AI messaging.",
-            value: 6,
-            effort: 4,
-          },
-          {
-            content:
-              "Develop a social media mini-series or ad concept around real use cases of AI agents improving customer experience, inspired by Elad’s storytelling style.",
-            value: 8,
-            effort: 5,
-          },
-        ],
-      },
       impact: "medium",
       links: [
-        "https://www.ynet.co.il/economy/article/sklqppiakg",
-        "https://www.facebook.com/photo/?fbid=1218751043325208&set=a.464634349877758",
-      ],
-      // campaign: {
-      //   platforms: ["Facebook", "Instagram"],
-      //   country: "Israel",
-      //   image_url:
-      //     "https://scontent-atl3-2.xx.fbcdn.net/v/t39.35426-6/503813860_1218751043325208_4734092279442494411_n.jpg",
-      // },
-    },
-    {
-      company: "Top Vision",
-      homepage: "https://netsuite.top-vision.co.il/",
-      insight: {
-        title: "BlueSnap Partnership for Payments",
-        summary:
-          "Top Vision partnered with BlueSnap to deliver an enhanced, unified global payments experience integrated into NetSuite for Israeli businesses, offering real-time payment data sync, multi-currency support, and actionable reporting.",
-        proposedActions: [
-          {
-            content:
-              "Analyze Top Vision's BlueSnap integration to improve your own payment process automation and user experience.",
-            value: 7,
-            effort: 4,
-          },
-          {
-            content:
-              "Consider similar partnerships or implement global payment platforms with real-time ERP integration.",
-            value: 8,
-            effort: 6,
-          },
-          {
-            content:
-              "Develop targeted marketing campaigns highlighting seamless payment experiences to attract NetSuite users.",
-            value: 6,
-            effort: 3,
-          },
-        ],
-      },
-      impact: "high",
-      links: [
-        "https://www.linkedin.com/posts/bluesnap_%D7%A9%D7%99%D7%AA%D7%95%D7%A3-%D7%A4%D7%A2%D7%95%D7%9C%D7%94-%D7%97%D7%93%D7%A9-%D7%91%D7%93%D7%A8%D7%9A-%D7%9C%D7%99%D7%99%D7%A2%D7%95%D7%9C-%D7%97%D7%95%D7%95%D7%99%D7%99%D7%AA-%D7%94%D7%AA%D7%A9%D7%9C%D7%95%D7%9E%D7%99%D7%9D-activity-7336287413738070018-6fZh",
-        "https://www.linkedin.com/posts/top-vision-fusion-oracle_%D7%A9%D7%99%D7%AA%D7%95%D7%A3-%D7%A4%D7%A2%D7%95%D7%9C%D7%94-%D7%97%D7%93%D7%A9-%D7%91%D7%93%D7%A8%D7%9A-%D7%9C%D7%99%D7%99%D7%A2%D7%95%D7%9C-%D7%97%D7%95%D7%95%D7%99%D7%99%D7%AA-%D7%94%D7%AA%D7%A9%D7%9C%D7%95%D7%9E%D7%99%D7%9D-activity-7333411530991939585-FAQ5",
+        "https://www.linkedin.com/posts/elad-systems_%D7%A9%D7%99%D7%AA%D7%95%D7%A3-%D7%A4%D7%A2%D7%95%D7%9C%D7%94-%D7%97%D7%93%D7%A9-ibm-%D7%99%D7%A9%D7%A8%D7%90%D7%9C-%D7%91%D7%97%D7%A8%D7%94-%D7%91%D7%90%D7%9C%D7%A2%D7%93-%D7%9E%D7%A2%D7%A8%D7%9B%D7%95%D7%AA-activity-7338818251293966337-K97w",
       ],
     },
     {
       company: "Elad Software Systems",
       homepage: "https://eladsoft.com",
       insight: {
-        title: "Nonprofit AI Solutions",
+        title: "CRM Talent Ramp-Up",
         summary:
-          "Elad hosted a conference showcasing its Agentforce AI platform tailored for nonprofit organizations, demonstrating Marketing Cloud integrations and real-world impact in crisis management and strategic planning.",
+          "Elad has opened at least 10 new CRM roles—ranging from Junior/Senior Dynamics 365 and Salesforce developers to QA, implementers and project managers—across central Israel, indicating a major capacity expansion of its Salesforce/Dynamics practices.",
         proposedActions: [
           {
             content:
-              "Research AI use cases in the nonprofit sector to develop or partner on specialized solutions.",
-            value: 7,
-            effort: 5,
-          },
-          {
-            content:
-              "Engage leading nonprofits for pilot programs to refine AI features around donation management, volunteer coordination, and impact reporting.",
-            value: 8,
-            effort: 7,
-          },
-          {
-            content:
-              "Launch a targeted marketing campaign highlighting AI benefits for nonprofits, citing Elad’s case studies as proof points.",
+              "Fast-track a graduate training program (4–6 weeks) to secure junior CRM talent before Elad pulls them from the market.",
             value: 6,
             effort: 4,
           },
@@ -196,166 +140,35 @@ export const data: IResponse = {
       },
       impact: "medium",
       links: [
-        "https://www.linkedin.com/posts/elad-systems_%D7%A4%D7%AA%D7%A8%D7%95%D7%A0%D7%95%D7%AA-ai-%D7%9C%D7%A2%D7%95%D7%9C%D7%9D-%D7%94%D7%A2%D7%9E%D7%95%D7%AA%D7%95%D7%AA-%D7%A2%D7%95%D7%A9%D7%99%D7%9D-%D7%98%D7%95%D7%91-%D7%91%D7%93%D7%A8%D7%9A-activity-7335599631487098880-21Yd?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAFt9d-ABZJsvoISfvSh1A6iTFRaqKszi6vY",
+        "https://careers.eladsoft.com/%D7%9B%D7%9C-%D7%94%D7%9E%D7%A9%D7%A8%D7%95%D7%AA-crm/",
+        "https://careers.eladsoft.com/jobs/1003957/",
       ],
     },
     {
-      company: "Elad Software Systems",
-      homepage: "https://eladsoft.com",
+      company: "iCloudius",
+      homepage: "https://icloudius.com",
       insight: {
-        title: "Snowflake Partnership Debut",
+        title: "AI Cash-Management Tie-Up",
         summary:
-          "Elad announced its first official strategic partnership with Snowflake at the Data for Breakfast conference, enhancing its cloud data analytics capabilities to unify sources, build advanced models, and deliver real-time insights.",
+          "iCloudius has partnered with Nilus to embed AI-driven cash-management and treasury forecasting into NetSuite projects, positioning itself as a one-stop finance-transformation partner for mid-market firms.",
         proposedActions: [
           {
             content:
-              "Evaluate integration with Snowflake or similar cloud data platforms to expand your analytics offerings.",
-            value: 7,
+              "Publish a comparison white-paper showing how your own treasury tools outperform the Nilus + NetSuite bundle on forecasting accuracy and implementation cost.",
+            value: 8,
             effort: 5,
           },
           {
             content:
-              "Form alliances with leading data platform providers to access best-in-class tooling and co-market solutions.",
-            value: 8,
-            effort: 7,
-          },
-          {
-            content:
-              "Conduct internal training on cloud data warehousing and real-time BI to accelerate adoption and client readiness.",
-            value: 6,
-            effort: 4,
-          },
-        ],
-      },
-      impact: "medium",
-      links: [
-        "https://www.linkedin.com/posts/elad-systems_%D7%91%D7%95%D7%A7%D7%A8-%D7%A9%D7%9C-%D7%A9%D7%95%D7%AA%D7%A4%D7%95%D7%AA-%D7%91%D7%9B%D7%A0%D7%A1-data-for-breakfast-%D7%A9%D7%9C-activity-7325774981542436865--KPu?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAFt9d-ABZJsvoISfvSh1A6iTFRaqKszi6vY",
-      ],
-    },
-    {
-      company: "Elad Software Systems",
-      homepage: "https://eladsoft.com",
-      insight: {
-        title: "Public Sector Crisis Tech",
-        summary:
-          "Elad, alongside Salesforce and municipal clients, developed an emergency management system that synchronizes and reports data across rescue and relief agencies, improving decision-making during infrastructure failures, mass events, and security crises.",
-        proposedActions: [
-          {
-            content:
-              "Develop or partner on digital emergency response platforms with data synchronization and real-time dashboards.",
-            value: 9,
-            effort: 8,
-          },
-          {
-            content:
-              "Collaborate with public sector bodies to pilot crisis management solutions and gather operational feedback.",
-            value: 7,
-            effort: 6,
-          },
-          {
-            content:
-              "Showcase crisis readiness technology in government forums to build credibility and drive adoption.",
-            value: 6,
-            effort: 4,
-          },
-        ],
-      },
-      impact: "high",
-      links: [
-        "https://www.linkedin.com/posts/elad-systems_%D7%90%D7%99%D7%9A-%D7%9E%D7%AA%D7%9B%D7%95%D7%A0%D7%A0%D7%99%D7%9D-%D7%9B%D7%91%D7%A8-%D7%94%D7%99%D7%95%D7%9D-%D7%9C%D7%90%D7%AA%D7%92%D7%A8%D7%99%D7%9D-%D7%A4%D7%AA%D7%90%D7%95%D7%9E%D7%99%D7%99%D7%9D-%D7%A9%D7%94%D7%A2%D7%AA%D7%99%D7%93-activity-7330929321508868098-sMPK?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAFt9d-ABZJsvoISfvSh1A6iTFRaqKszi6vY",
-      ],
-    },
-    {
-      company: "Elad Software Systems",
-      homepage: "https://eladsoft.com",
-      insight: {
-        title: "Veterans Data Training Program",
-        summary:
-          "Elad launched a six-month data course in partnership with the Lohamim LeHightech program, integrating military veterans into real projects and facilitating post-course placement at Elad or client organizations, combining social impact with talent development.",
-        proposedActions: [
-          {
-            content:
-              "Partner with veteran transition programs to create practical tech training courses and tap into a motivated talent pool.",
-            value: 7,
-            effort: 5,
-          },
-          {
-            content:
-              "Promote veteran-focused training initiatives in your employer branding to enhance CSR and recruitment pipelines.",
+              "Offer a limited-time discount to finance teams migrating from spreadsheets to your solution in Q3 2025 to capture prospects attracted by the new partnership buzz.",
             value: 6,
             effort: 4,
           },
           {
             content:
-              "Offer project-based internships during training to accelerate skill acquisition and improve placement rates.",
-            value: 8,
-            effort: 6,
-          },
-        ],
-      },
-      impact: "medium",
-      links: [
-        "https://www.linkedin.com/posts/elad-systems_%D7%9E%D7%9E%D7%99%D7%9C%D7%95%D7%90%D7%99%D7%9D-%D7%9C%D7%94%D7%99%D7%99%D7%98%D7%A7-%D7%A7%D7%95%D7%A8%D7%A1-%D7%93%D7%90%D7%98%D7%94-%D7%97%D7%93%D7%A9-%D7%A9%D7%9E%D7%A9%D7%9C%D7%91-%D7%9C%D7%95%D7%97%D7%9E%D7%99%D7%9D-activity-7325545364583804929-wH7f?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAFt9d-ABZJsvoISfvSh1A6iTFRaqKszi6vY",
-      ],
-    },
-    {
-      company: "iCloudius - Cloud IT Solutions",
-      homepage: "https://www.icloudius.com",
-      insight: {
-        title: "NetSuite & Sales Tax Webinar",
-        summary:
-          "iCloudius is hosting a special session with Avalara for NetSuite users to showcase best practices and automation tools for sales tax management, addressing complexities like digital goods taxation and nexus laws, emphasizing the shift from manual to automated tax processes.",
-        proposedActions: [
-          {
-            content:
-              "Attend or monitor this webinar to understand how sales tax automation can benefit your operations.",
-            value: 7,
-            effort: 3,
-          },
-          {
-            content:
-              "Evaluate integrating Avalara or similar sales tax automation within your ERP or finance systems to reduce compliance risks.",
-            value: 8,
-            effort: 6,
-          },
-          {
-            content:
-              "Develop educational content or campaigns focusing on simplifying complex sales tax regulations to attract finance clients.",
-            value: 6,
-            effort: 4,
-          },
-        ],
-      },
-      impact: "medium",
-      links: [
-        "https://www.linkedin.com/posts/cloudius_tax-salestax-taxsoftware-activity-7335963948740968449-gVOd",
-      ],
-    },
-    {
-      company: "iCloudius - Cloud IT Solutions",
-      homepage: "https://www.icloudius.com",
-      insight: {
-        title: "Partnership with Nilus for AI Treasury",
-        summary:
-          "iCloudius announced a partnership with Nilus, an agentic AI platform providing real-time cash visibility, AI forecasting, and liquidity optimization integrated natively with NetSuite, enhancing ERP's treasury capabilities for finance teams.",
-        proposedActions: [
-          {
-            content:
-              "Explore adopting AI-powered treasury solutions to provide smarter cash flow forecasts and liquidity management.",
-            value: 8,
-            effort: 6,
-          },
-          {
-            content:
-              "Partner with innovative AI platforms like Nilus to enhance your finance service offerings.",
-            value: 7,
-            effort: 7,
-          },
-          {
-            content:
-              "Promote integrated AI-enhanced treasury solutions to NetSuite users and finance departments to increase market share.",
-            value: 6,
-            effort: 5,
+              "Set up SimilarWeb and LinkedIn keyword alerts inside Loomii for future partnership announcements to react faster than competitors.",
+            value: 3,
+            effort: 2,
           },
         ],
       },
@@ -365,96 +178,121 @@ export const data: IResponse = {
       ],
     },
     {
-      company: "iCloudius - Cloud IT Solutions",
-      homepage: "https://www.icloudius.com",
+      company: "iCloudius",
+      homepage: "https://icloudius.com",
       insight: {
-        title: "Salesforce Agentforce World Tour Presence",
+        title: "Tax-Automation Webinar Drive",
         summary:
-          "iCloudius is exhibiting and presenting at the upcoming Salesforce Agentforce World Tour Tel Aviv event, showcasing CRM solutions tailored for growing businesses with a session on Deep Fake detection using AI.",
+          "On June 23, 2025, a joint iCloudius–Avalara webinar series targeted NetSuite users with messaging around automating complex U.S. sales-tax compliance, signaling an active lead-generation campaign in tax-automation services.",
         proposedActions: [
           {
             content:
-              "Attend the Salesforce Agentforce event to network and gather insights on AI in CRM from iCloudius and other leaders.",
+              "Host a counter-webinar with a tax attorney to highlight gaps in Avalara’s coverage (e.g., EU VAT, digital-services taxes) and position your firm as the holistic compliance partner.",
+            value: 7,
+            effort: 5,
+          },
+          {
+            content:
+              "Run LinkedIn and Google Ads at NetSuite user groups during the webinar week with retargeting to steal top-of-funnel traffic.",
+            value: 5,
+            effort: 4,
+          },
+          {
+            content:
+              "Create a 2-page guide on automated tax compliance for NetSuite and gate it behind an email form to grow your lead list.",
+            value: 4,
+            effort: 3,
+          },
+        ],
+      },
+      impact: "medium",
+      links: [
+        "https://www.linkedin.com/posts/cloudius_so-next-week-its-going-to-happen-avalara-activity-7341049775070294016-oflz",
+      ],
+    },
+    {
+      company: "iCloudius",
+      homepage: "https://icloudius.com",
+      insight: {
+        title: "Push Into Subscription CRM",
+        summary:
+          "Multiple recent posts spotlight Salesforce Subscription Management and recurring-revenue strategy, showing iCloudius is doubling down on subscription-economy consulting and services.",
+        proposedActions: [
+          {
+            content:
+              "Release a client case study quantifying ROI from your own subscription-billing integration versus Salesforce’s tooling to position your offer as higher value.",
+            value: 7,
+            effort: 4,
+          },
+          {
+            content:
+              'Publish an SEO blog series on "subscription management for SMBs" to capture organic traffic before iCloudius’s content gains traction.',
             value: 6,
             effort: 3,
           },
           {
             content:
-              "Develop or enhance CRM AI capabilities, including AI-powered security features like deep fake detection, to stay competitive.",
-            value: 8,
-            effort: 7,
-          },
-          {
-            content:
-              "Collaborate with Salesforce-based platforms and build targeted marketing to leverage event participation and partnerships.",
-            value: 7,
-            effort: 5,
+              "Equip sales reps with a one-page battlecard contrasting your platform with Salesforce Subscription Management on pricing flexibility and time-to-launch.",
+            value: 5,
+            effort: 2,
           },
         ],
       },
       impact: "medium",
       links: [
-        "https://www.linkedin.com/posts/cloudius_%D7%94%D7%9B%D7%A0%D7%A1-%D7%94%D7%A9%D7%A0%D7%AA%D7%99-%D7%A9%D7%9C-salesforce-agentforce-world-activity-7330910605349941249-4lDf",
+        "https://www.linkedin.com/posts/cloudius_salesforce-crm-salesforcepartner-activity-7343578675340029952-ansG",
       ],
     },
     {
-      company: "iCloudius - Cloud IT Solutions",
-      homepage: "https://www.icloudius.com",
+      company: "iCloudius",
+      homepage: "https://icloudius.com",
       insight: {
-        title: "Expanding ERP Customer Analytics",
+        title: "Site Traffic Falls 36%",
         summary:
-          "iCloudius promotes leveraging Oracle NetSuite and NetSuite Analytics Warehouse for improved customer satisfaction via real-time dashboards, quarterly business reviews, and transparency for strategic B2B clients, enhancing decision making.",
+          "SimilarWeb shows icloudius.com visits dropping 36.5% to only 640 monthly, with 82% of traffic from Israel and negligible organic reach—signalling weakened digital visibility.",
         proposedActions: [
           {
             content:
-              "Implement or enhance real-time performance dashboards for key clients to boost engagement and decision speed.",
-            value: 7,
-            effort: 5,
+              'Accelerate blog and backlink campaigns targeting keywords such as "NetSuite partner Israel" to win share while iCloudius’s visibility is low.',
+            value: 9,
+            effort: 4,
           },
           {
             content:
-              "Use data analytics platforms like NetSuite Analytics Warehouse to support regular business review meetings with clients.",
-            value: 8,
-            effort: 6,
-          },
-          {
-            content:
-              "Market value-added data transparency tools to attract and retain strategic customers in B2B segments.",
+              "Launch LinkedIn ads in Ireland—iCloudius’s second-largest traffic source—to capture prospects they may be neglecting.",
             value: 6,
             effort: 4,
           },
+          {
+            content:
+              "Integrate SimilarWeb tracking for icloudius.com into Loomii dashboards to continuously monitor their traffic trend and react quickly.",
+            value: 3,
+            effort: 1,
+          },
         ],
       },
-      impact: "medium",
-      links: [
-        "https://www.linkedin.com/posts/cloudius_netsuite-netsuitedevelopment-erp-activity-7328354512698494976-m3Kd",
-      ],
+      impact: "high",
+      links: ["https://similarweb.com/website/icloudius.com"],
     },
     {
-      company: "iCloudius - Cloud IT Solutions",
-      homepage: "https://www.icloudius.com",
+      company: "iCloudius",
+      homepage: "https://icloudius.com",
       insight: {
-        title: "Hiring Sales and Cloud Experts",
+        title: "Scaling Sales & Delivery",
         summary:
-          "iCloudius is actively recruiting for various roles including Professional Services Sales Executive and Cloud Computing Experts focused on Salesforce, HubSpot, Zendesk, and NetSuite platforms, highlighting growth and specialization in cloud business applications.",
+          "New job ads for a professional-services sales executive and a cloud-computing expert suggest iCloudius is expanding outbound sales and technical capacity to win larger projects.",
         proposedActions: [
           {
             content:
-              "Monitor iCloudius hiring trends to anticipate their expansion and skill focus areas.",
-            value: 6,
-            effort: 2,
-          },
-          {
-            content:
-              "Strengthen your own recruiting and training efforts in SaaS and cloud platforms to stay competitive.",
+              "Map new iCloudius sales hires on LinkedIn and proactively engage their likely target accounts before relationships solidify.",
             value: 7,
-            effort: 6,
+            effort: 5,
           },
           {
             content:
-              "Build specialized cloud teams capable of implementing robust SaaS solutions, including Salesforce and NetSuite integration.",
-            value: 9,
-            effort: 9,
+              "Fast-track recruitment of certified Salesforce and NetSuite consultants to avoid capacity gaps if deal flow accelerates industry-wide.",
+            value: 6,
+            effort: 6,
           },
         ],
       },
@@ -465,339 +303,329 @@ export const data: IResponse = {
     },
     {
       company: "Asperii",
-      homepage: "https://www.asperii.com",
+      homepage: "https://asperii.com",
       insight: {
-        title: "Healthcare AI & Field Service Focus",
+        title: "Hiring for AI Talent",
         summary:
-          "Asperii is actively highlighting its expertise in digital transformation for the healthcare sector, emphasizing customer relationship management under stringent regulation and distributed staff management. They are featuring real-world success stories with leading healthcare clients like Danel Group at the upcoming Salesforce Agentforce World Tour 2025 in Tel Aviv.",
+          "On 24 June 2025 Asperii advertised five senior Salesforce roles, signalling rapid growth and a push to deliver more AI-driven projects.",
         proposedActions: [
           {
             content:
-              "Engage healthcare clients by developing tailored AI and CRM solutions that adapt to complex regulations and decentralized teams.",
-            value: 8,
-            effort: 6,
-          },
-          {
-            content:
-              "Participate in or monitor Salesforce Agentforce events to understand client success cases and innovative healthcare workflows.",
-            value: 7,
-            effort: 4,
-          },
-          {
-            content:
-              "Build marketing campaigns featuring case studies from healthcare digitalization projects to strengthen domain credibility.",
-            value: 6,
-            effort: 4,
-          },
-        ],
-      },
-      impact: "high",
-      links: [
-        "https://www.linkedin.com/posts/asperii_%D7%91%D7%A2%D7%95%D7%9C%D7%9E%D7%95%D7%AA-%D7%94%D7%91%D7%A8%D7%99%D7%90%D7%95%D7%AA-%D7%90%D7%99%D7%9F-%D7%A2%D7%A8%D7%9A-%D7%97%D7%A9%D7%95%D7%91-%D7%99%D7%95%D7%AA%D7%A8-%D7%9E%D7%94%D7%98%D7%99%D7%A4%D7%95%D7%9C-activity-7336036529514917889-uUFz",
-      ],
-    },
-    {
-      company: "Asperii",
-      homepage: "https://www.asperii.com",
-      insight: {
-        title: "Focused Salesforce Consultant Hiring",
-        summary:
-          "Asperii recently hired a new Salesforce Consultant, indicating expansion and investment in Salesforce-related capabilities. Combined with their active participation in Salesforce events, this suggests a growth strategy centered on Salesforce service delivery and expertise.",
-        proposedActions: [
-          {
-            content:
-              "Monitor Asperii’s consultant hiring trends to evaluate their growing Salesforce channel capabilities.",
+              "Monitor Asperii’s job board weekly to spot new skill trends and anticipate service offerings.",
             value: 6,
             effort: 2,
           },
           {
             content:
-              "Invest in developing or hiring Salesforce-focused consultants to remain competitive and meet client demand.",
-            value: 8,
-            effort: 7,
-          },
-          {
-            content:
-              "Explore Salesforce specialization certifications to broaden your team's skillset and attract Salesforce clients.",
-            value: 7,
-            effort: 5,
-          },
-        ],
-      },
-      impact: "medium",
-      links: [
-        "https://www.linkedin.com/posts/asperii_welcomeyael-merhavi-our-new-salesforce-activity-7332283279502417920-0Qgr",
-      ],
-    },
-    {
-      company: "Asperii",
-      homepage: "https://www.asperii.com",
-      insight: {
-        title: "Recognition in IT Consulting Sector",
-        summary:
-          "Asperii is recognized in the 2025 rankings as a leading cloud consulting and system integrator company with presence in New York, London, and expertise in Salesforce and AWS. They focus on enabling superior business results with cloud, data, CRM and AI solutions.",
-        proposedActions: [
-          {
-            content:
-              "Review Asperii’s cloud and AI service models to benchmark your offerings and identify areas for enhancement.",
-            value: 7,
-            effort: 5,
-          },
-          {
-            content:
-              "Leverage recognition in industry rankings to position your own brand and build trust with prospective clients.",
-            value: 6,
-            effort: 4,
-          },
-          {
-            content:
-              "Expand global footprint or partnerships to emulate Asperii’s presence in multinational markets.",
-            value: 8,
-            effort: 9,
-          },
-        ],
-      },
-      impact: "medium",
-      links: [
-        "https://clutch.co/il/it-services",
-        "https://appexchange.salesforce.com/appxListingDetail?listingId=a0N3A00000DvPOAUA3",
-      ],
-    },
-    {
-      company: "Top Vision",
-      homepage: "https://netsuite.top-vision.co.il/",
-      insight: {
-        title: "BlueSnap Partnership for Payments",
-        summary:
-          "Top Vision partnered with BlueSnap to deliver an enhanced, unified global payments experience integrated into NetSuite for Israeli businesses, offering real-time payment data sync, multi-currency support, and actionable reporting.",
-        proposedActions: [
-          {
-            content:
-              "Analyze Top Vision's BlueSnap integration to improve your own payment process automation and user experience.",
-            value: 7,
-            effort: 4,
-          },
-          {
-            content:
-              "Consider similar partnerships or implement global payment platforms with real-time ERP integration.",
-            value: 8,
-            effort: 6,
-          },
-          {
-            content:
-              "Develop targeted marketing campaigns highlighting seamless payment experiences to attract NetSuite users.",
-            value: 6,
-            effort: 3,
-          },
-        ],
-      },
-      impact: "high",
-      links: [
-        "https://www.linkedin.com/posts/bluesnap_%D7%A9%D7%99%D7%AA%D7%95%D7%A3-%D7%A4%D7%A2%D7%95%D7%9C%D7%94-%D7%97%D7%93%D7%A9-%D7%91%D7%93%D7%A8%D7%9A-%D7%9C%D7%99%D7%99%D7%A2%D7%95%D7%9C-%D7%97%D7%95%D7%95%D7%99%D7%99%D7%AA-%D7%94%D7%AA%D7%A9%D7%9C%D7%95%D7%9E%D7%99%D7%9D-activity-7336287413738070018-6fZh",
-        "https://www.linkedin.com/posts/top-vision-fusion-oracle_%D7%A9%D7%99%D7%AA%D7%95%D7%A3-%D7%A4%D7%A2%D7%95%D7%9C%D7%94-%D7%97%D7%93%D7%A9-%D7%91%D7%93%D7%A8%D7%9A-%D7%9C%D7%99%D7%99%D7%A2%D7%95%D7%9C-%D7%97%D7%95%D7%95%D7%99%D7%99%D7%AA-%D7%94%D7%AA%D7%A9%D7%9C%D7%95%D7%9E%D7%99%D7%9D-activity-7333411530991939585-FAQ5",
-      ],
-    },
-    {
-      company: "Top Vision",
-      homepage: "https://netsuite.top-vision.co.il/",
-      insight: {
-        title: "Comprehensive Oracle & NetSuite Services",
-        summary:
-          "Top Vision is a leading Oracle partner in Israel, specializing in the implementation and integration of key organizational systems including Oracle Fusion Cloud, HCM, EPM, ERP, and NetSuite ERP products, with over 20 years of experience supporting major companies.",
-        proposedActions: [
-          {
-            content:
-              "Build expertise in advanced Oracle and NetSuite solutions, particularly in financial and logistics domains.",
-            value: 8,
-            effort: 7,
-          },
-          {
-            content:
-              "Leverage Top Vision’s experience to optimize your own ERP implementation strategies and customer success.",
-            value: 7,
-            effort: 5,
-          },
-          {
-            content:
-              "Explore regional and global partnership networks to enhance solution localization and client support.",
-            value: 6,
-            effort: 6,
-          },
-        ],
-      },
-      impact: "medium",
-      links: [
-        "https://top-group.co.il/en/group-companies/",
-        "https://www.top-vision.co.il/top-vision-en/",
-        "https://netsuite.top-vision.co.il/about/?lang=en",
-      ],
-    },
-    {
-      company: "Top Vision",
-      homepage: "https://netsuite.top-vision.co.il/",
-      insight: {
-        title: "Finance Event Leadership",
-        summary:
-          "Top Vision hosted a ‘Finance Forward’ event with Oracle for CFOs and finance leaders in Israel, focusing on adapting to new regulations like IFRS 18, adopting digital financial tools, and enabling accurate, insight-driven financial management.",
-        proposedActions: [
-          {
-            content:
-              "Attend or track Top Vision's finance-focused events to stay current on regulatory changes and advanced financial technologies.",
-            value: 7,
-            effort: 4,
-          },
-          {
-            content:
-              "Collaborate with Oracle and finance leaders to co-host events and workshops on cutting-edge financial solutions.",
-            value: 8,
-            effort: 6,
-          },
-          {
-            content:
-              "Create educational materials about IFRS 18 and digital finance transformation to attract and inform finance professionals.",
-            value: 6,
-            effort: 4,
-          },
-        ],
-      },
-      impact: "medium",
-      links: [
-        "https://www.linkedin.com/posts/top-vision-fusion-oracle_%D7%AA%D7%95%D7%93%D7%94-%D7%A9%D7%94%D7%A6%D7%98%D7%A8%D7%A4%D7%AA%D7%9D-%D7%90%D7%9C%D7%99%D7%A0%D7%95-%D7%90%D7%99%D7%A8%D7%95%D7%A2-finance-forward-activity-7329834314076975104-Je3o",
-      ],
-    },
-    {
-      company: "ONE Technologies",
-      homepage: "https://www.one1.co.il",
-      insight: {
-        title: "Cloud-Based Identity Management Deployment",
-        summary:
-          "ONE Technologies recently completed an intensive four-month deployment of a cloud-based Identity and Access Management (IDM) system by SailPoint, enhancing security for client Tadhar. The IDM system offers precise lifecycle management of users and authorizations aligned with current and future regulations, improving organizational cybersecurity posture.",
-        proposedActions: [
-          {
-            content:
-              "Monitor cloud IDM deployment trends to evaluate opportunities for secure cloud identity solutions.",
-            value: 7,
-            effort: 3,
-          },
-          {
-            content:
-              "Develop or partner to offer cloud-based identity and access management solutions targeting regulated industries.",
-            value: 8,
-            effort: 7,
-          },
-          {
-            content:
-              "Educate clients on cybersecurity risks stemming from manual or misconfigured access control and promote automated IDM adoption.",
-            value: 6,
-            effort: 4,
-          },
-        ],
-      },
-      impact: "high",
-      links: [
-        "https://bit.ly/3HpK7Bn",
-        "https://www.linkedin.com/posts/one1_%D7%94%D7%96%D7%94%D7%95%D7%99%D7%95%D7%AA-%D7%91%D7%99%D7%93%D7%99%D7%99%D7%9D-%D7%91%D7%98%D7%95%D7%97%D7%95%D7%AA-go-%D7%9E%D7%A2%D7%A8%D7%9B%D7%AA-%D7%A0%D7%99%D7%94%D7%95%D7%9C-%D7%96%D7%94%D7%95%D7%99%D7%95%D7%AA-activity-7336396100506955776-TNzi?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAFuKFEcBd7ADVcIQtZVwy38TbtHpi94wioM",
-      ],
-    },
-    {
-      company: "ONE Technologies",
-      homepage: "https://www.one1.co.il",
-      insight: {
-        title: "ServiceNow Partner of the Year Award",
-        summary:
-          "ONE Technologies’ ServiceNow division won the 2025 'Partner of the Year' award in consulting and implementation for the EMEA region, reflecting their commitment to delivering innovative, results-driven digital transformation solutions and deep expertise in ServiceNow platform deployment.",
-        proposedActions: [
-          {
-            content:
-              "Track ONE's progress and methodologies in ServiceNow implementations to learn best practices for digital transformation projects.",
-            value: 7,
-            effort: 4,
-          },
-          {
-            content:
-              "Invest in ServiceNow skills and certifications to build a competitive edge in the EMEA market.",
-            value: 9,
-            effort: 7,
-          },
-          {
-            content:
-              "Develop case studies around digital transformation Hubs built with ServiceNow to showcase capabilities to enterprise clients.",
-            value: 6,
-            effort: 5,
-          },
-        ],
-      },
-      impact: "high",
-      links: [
-        "https://lnkd.in/d-yPqTys",
-        "https://www.linkedin.com/posts/one1_%D7%97%D7%98%D7%99%D7%91%D7%AA-%D7%94-servicenow-%D7%A9%D7%9C%D7%A0%D7%95-%D7%96%D7%9B%D7%AA%D7%94-%D7%91%D7%A4%D7%A8%D7%A1-%D7%A9%D7%95%D7%AA%D7%A3-%D7%94%D7%A9%D7%A0%D7%94-activity-7327686290475208704-O3Ov?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAFuKFEcBd7ADVcIQtZVwy38TbtHpi94wioM",
-      ],
-    },
-    {
-      company: "ONE Technologies",
-      homepage: "https://www.one1.co.il",
-      insight: {
-        title: "Innovative AI Development Approaches",
-        summary:
-          "At the Data TLV 2025 conference, ONE Technologies demonstrated their 'ONE Success' approach to AI solution deployment, highlighting their capability to deliver both quick, efficient AI features and complex, integrated AI systems tailored to diverse business challenges.",
-        proposedActions: [
-          {
-            content:
-              "Assess and incorporate agile AI development frameworks similar to ONE Technologies to balance speed and complexity in AI projects.",
-            value: 8,
-            effort: 6,
-          },
-          {
-            content:
-              "Invest in building teams capable of delivering end-to-end AI solutions that scale with evolving business needs.",
-            value: 9,
-            effort: 8,
-          },
-          {
-            content:
-              "Leverage case studies from ONE’s AI deployments for sales and marketing to demonstrate AI maturity to prospects.",
-            value: 7,
-            effort: 4,
-          },
-        ],
-      },
-      impact: "high",
-      links: [
-        "https://www.linkedin.com/posts/one1_%D7%A9%D7%AA%D7%99-%D7%92%D7%99%D7%A9%D7%95%D7%AA-%D7%A4%D7%99%D7%AA%D7%95%D7%97-%D7%A9%D7%91%D7%95%D7%A0%D7%95%D7%AA-one-success-%D7%9B%D7%A0%D7%A1-activity-7331194610683154432-HSdV?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAFuKFEcBd7ADVcIQtZVwy38TbtHpi94wioM",
-      ],
-    },
-    {
-      company: "ONE Technologies",
-      homepage: "https://www.one1.co.il",
-      insight: {
-        title: "Social Impact Initiative for Haredi Veterans",
-        summary:
-          "ONE Technologies is actively promoting the social initiative 'Businesses for Haredim Joining the Army,' supporting integration of Haredi army recruits into the workforce with employment opportunities and tailored work environments after service.",
-        proposedActions: [
-          {
-            content:
-              "Engage in or support workforce inclusion programs targeting minority communities to enhance social responsibility and access diverse talent.",
-            value: 6,
-            effort: 4,
-          },
-          {
-            content:
-              "Use social initiatives as a brand differentiator and corporate social responsibility showcase.",
+              "Highlight your own AI case studies on LinkedIn to attract similar talent and clients.",
             value: 5,
             effort: 3,
           },
           {
             content:
-              "Develop specialized on-boarding and career support programs for minority groups to build long-term workforce engagement.",
-            value: 7,
-            effort: 6,
+              "Launch an employee-referral bonus program to fill matching roles quickly.",
+            value: 4,
+            effort: 4,
           },
         ],
       },
       impact: "medium",
       links: [
-        "https://jobforsure.co.il/",
-        "https://www.linkedin.com/posts/one1_%D7%90%D7%A0%D7%95-%D7%92%D7%90%D7%99%D7%9D-%D7%95%D7%A0%D7%97%D7%95%D7%A9%D7%99%D7%9D-%D7%9C%D7%A7%D7%93%D7%9D-%D7%90%D7%AA-%D7%9E%D7%99%D7%96%D7%9D-%D7%A2%D7%A1%D7%A7%D7%99%D7%9D-%D7%9C%D7%9E%D7%A2%D7%9F-activity-7330539917061582849-1c4Z?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAFuKFEcBd7ADVcIQtZVwy38TbtHpi94wioM",
+        "https://www.linkedin.com/posts/asperii_%D7%9C%D7%90-%D7%A1%D7%AA%D7%9D-%D7%A7%D7%A8%D7%90%D7%95-%D7%9C%D7%9E%D7%91%D7%A6%D7%A2-%D7%A2%D7%9D-%D7%9B%D7%9C%D7%91%D7%99%D7%90-%D7%92%D7%9D-%D7%91%D7%99%D7%9E%D7%99%D7%9D-%D7%9C%D7%90-activity-7343187004781735937-F3Gb",
+      ],
+    },
+    {
+      company: "Asperii",
+      homepage: "https://asperii.com",
+      insight: {
+        title: "Salesforce Partner Award Win",
+        summary:
+          "At Salesforce’s Agentforce World Tour (posted 12 June 2025) Asperii won the “Sales Elite Partner of the Year” award and showcased high-profile AI customer stories, boosting brand authority.",
+        proposedActions: [
+          {
+            content:
+              "Publish fresh client success stories on your website to strengthen credibility with prospects.",
+            value: 7,
+            effort: 3,
+          },
+          {
+            content:
+              "Apply to speak or sponsor the next regional Salesforce event to match Asperii’s visibility.",
+            value: 6,
+            effort: 5,
+          },
+          {
+            content:
+              "Encourage key staff to obtain advanced Salesforce certifications this quarter.",
+            value: 5,
+            effort: 4,
+          },
+        ],
+      },
+      impact: "medium",
+      links: [
+        "https://www.linkedin.com/posts/asperii_%D7%9B%D7%9B%D7%94-%D7%A0%D7%A8%D7%90%D7%99%D7%AA-%D7%A9%D7%95%D7%AA%D7%A4%D7%95%D7%AA-%D7%91%D7%A2%D7%99%D7%93%D7%9F-%D7%94-ai-%D7%97%D7%95%D7%95%D7%99%D7%99%D7%94-%D7%91%D7%9C%D7%AA%D7%99-activity-7338957340936691712-a97m",
+      ],
+    },
+    {
+      company: "Asperii",
+      homepage: "https://asperii.com",
+      insight: {
+        title: "Website Traffic Falling",
+        summary:
+          "SimilarWeb reports a 37 % drop in visits (to ~1.2 k/month) and high reliance on direct traffic, suggesting limited inbound marketing momentum.",
+        proposedActions: [
+          {
+            content:
+              "Publish SEO articles targeting ‘Salesforce field service’ queries to capture organic demand Asperii is missing.",
+            value: 6,
+            effort: 4,
+          },
+          {
+            content:
+              "Run a small paid-search pilot to win traffic while Asperii spends little on ads.",
+            value: 4,
+            effort: 2,
+          },
+          {
+            content:
+              "Add lead magnets (e-book, demo) to reduce bounce and increase pages per visit above Asperii’s 2.3.",
+            value: 6,
+            effort: 5,
+          },
+        ],
+      },
+      impact: "high",
+      links: ["https://similarweb.com/website/asperii.com"],
+    },
+    {
+      company: "Top Vision",
+      homepage: "https://top-vision.co.il",
+      insight: {
+        title: "Organic Traffic Down 24%",
+        summary:
+          "Site visits dropped 23.9 % month-over-month to only 492, with 56 % coming direct and 30 % from organic search. The fall suggests shrinking brand awareness and weaker SEO momentum.",
+        proposedActions: [
+          {
+            content:
+              "Publish keyword-rich blog posts and NetSuite/Oracle case studies to revive organic search traffic.",
+            value: 7,
+            effort: 6,
+          },
+          {
+            content:
+              'Improve page titles, meta descriptions and internal links for top Oracle Cloud and "NetSuite ישראל" keywords.',
+            value: 5,
+            effort: 3,
+          },
+          {
+            content:
+              "Launch retargeting ads to recapture bounced visitors and push them toward a demo form.",
+            value: 5,
+            effort: 4,
+          },
+        ],
+      },
+      impact: "high",
+      links: ["https://similarweb.com/website/top-vision.co.il"],
+    },
+    {
+      company: "Top Vision",
+      homepage: "https://top-vision.co.il",
+      insight: {
+        title: "BlueSnap Payments Partnership",
+        summary:
+          "A new alliance with BlueSnap enables unified global payments inside NetSuite for Israeli customers, expanding Top Vision’s fintech footprint and adding cross-border commerce capabilities.",
+        proposedActions: [
+          {
+            content:
+              "Add a BlueSnap integration page and case study to the website to attract NetSuite prospects.",
+            value: 6,
+            effort: 4,
+          },
+          {
+            content:
+              "Co-host a webinar with BlueSnap explaining how unified payments accelerate cash flow and reporting.",
+            value: 7,
+            effort: 5,
+          },
+          {
+            content:
+              "Create a bundled pricing offer for NetSuite clients adopting the BlueSnap connector.",
+            value: 5,
+            effort: 3,
+          },
+        ],
+      },
+      impact: "medium",
+      links: [
+        "https://www.linkedin.com/posts/bluesnap_%D7%A9%D7%99%D7%AA%D7%95%D7%A3-%D7%A4%D7%A2%D7%95%D7%9C%D7%94-%D7%97%D7%93-%D7%A9%D7%91%D7%A8-%D7%93%D7%A8%D7%9A-%D7%9C%D7%99%D7%99%D7%A2%D7%95%D7%9C-%D7%97%D7%95%D7%95%D7%99%D7%99%D7%AA-%D7%94%D7%AA%D7%A9%D7%9C%D7%95%D7%9E%D7%99%D7%9D-activity-7336287413738070018-6fZh",
+        "https://www.linkedin.com/posts/top-vision-fusion-oracle_%D7%A9%D7%99%D7%AA%D7%95%D7%A3-%D7%A4%D7%A2%D7%95%D7%9C%D7%94-%D7%97%D7%93%D7%A9-%D7%91%D7%93%D7%A8%D7%9A-%D7%9C%D7%99%D7%99%D7%A2%D7%95%D7%9C-%D7%97%D7%95%D7%95%D7%99%D7%99%D7%AA-%D7%94%D7%AA%D7%A9%D7%9C%D7%95%D7%9E%D7%99%D7%9D-activity-7333411530991939585-FAQ5",
+      ],
+    },
+    {
+      company: "Top Vision",
+      homepage: "https://top-vision.co.il",
+      insight: {
+        title: "Oracle FCCS Campaign",
+        summary:
+          "LinkedIn content highlights Oracle FCCS as the top solution for faster close (3–5 days) and full transparency, signalling an aggressive push to own finance-consolidation projects.",
+        proposedActions: [
+          {
+            content:
+              "Build an interactive ROI calculator showing days saved and error reduction when switching to FCCS.",
+            value: 8,
+            effort: 5,
+          },
+          {
+            content:
+              "Pitch an FCCS customer success story to local finance publications for brand authority.",
+            value: 6,
+            effort: 4,
+          },
+          {
+            content:
+              "Offer a limited-time implementation discount for registrants of upcoming CFO events.",
+            value: 5,
+            effort: 3,
+          },
+        ],
+      },
+      impact: "medium",
+      links: [
+        "https://www.linkedin.com/posts/shimi-ben-baruch-90a80849_fccs-financialclose-cfo-activity-7340716965658812416-KrMb",
+      ],
+    },
+    {
+      company: "ONE Technologies",
+      homepage: "https://one1.co.il",
+      insight: {
+        title: "Sharp traffic drop: -15.5%",
+        summary:
+          "ONE Technologies' website experienced a -15.5% drop in traffic, totaling just 6,147 visits in the last period, with 100% of visits from Israel and no growth among younger or international audiences. Engagement is low (2.17 pages/visit, 60% bounce rate), and traffic is entirely organic with LinkedIn as the sole social source.",
+        proposedActions: [
+          {
+            content:
+              "Integrate SimilarWeb data for one1.co.il into Loomii to monitor ongoing traffic and engagement trends.",
+            value: 6,
+            effort: 2,
+          },
+          {
+            content:
+              "Launch a targeted LinkedIn ad campaign to boost traffic and expand beyond the Israeli audience, particularly targeting age 25-44 tech buyers.",
+            value: 8,
+            effort: 6,
+          },
+          {
+            content:
+              "Redesign website to improve user engagement (lower bounce rate, increase pages per visit) with clearer calls to action and mobile optimization.",
+            value: 9,
+            effort: 7,
+          },
+        ],
+      },
+      impact: "high",
+      links: ["https://similarweb.com/website/one1.co.il"],
+    },
+    {
+      company: "ONE Technologies",
+      homepage: "https://one1.co.il",
+      insight: {
+        title: "Cyber readiness during war",
+        summary:
+          "ONE Technologies is actively promoting its cybersecurity readiness and solutions tailored for wartime conditions, emphasizing admin restriction, system segmentation, SOC monitoring, recovery plans, and team preparedness. The company also initiated direct contact channels for incident response.",
+        proposedActions: [
+          {
+            content:
+              "Highlight your cyber resilience in LinkedIn posts to reassure current clients and attract prospects in sensitive sectors (e.g. finance, healthcare).",
+            value: 6,
+            effort: 3,
+          },
+          {
+            content:
+              "Bundle emergency cybersecurity audits and BCP services as limited-time offers for Israeli SMBs.",
+            value: 7,
+            effort: 5,
+          },
+          {
+            content:
+              "Develop a downloadable 'Cyber War Readiness Kit' to generate leads from companies seeking immediate solutions.",
+            value: 9,
+            effort: 7,
+          },
+        ],
+      },
+      impact: "medium",
+      links: [
+        "https://www.linkedin.com/posts/one1_%D7%94%D7%92%D7%A0%D7%94-%D7%95%D7%94%D7%99%D7%A2%D7%A8%D7%9B%D7%95%D7%AA-%D7%A1%D7%99%D7%99%D7%91%D7%A8-%D7%90%D7%A8%D7%92%D7%95%D7%A0%D7%99%D7%AA-%D7%91%D7%96%D7%9E%D7%9F-%D7%9E%D7%9C%D7%97%D7%9E%D7%94-activity-7340752979832049664--DM8",
+      ],
+    },
+    {
+      company: "ONE Technologies",
+      homepage: "https://one1.co.il",
+      insight: {
+        title: "Emergency offshore program",
+        summary:
+          "ONE Offshore launched a wartime emergency program offering immediate, no-commitment development support from its Eastern Europe centers. The campaign targets Israeli tech firms needing backup during the conflict, highlighting flexibility and high-profile clients like McDonald's and HSBC.",
+        proposedActions: [
+          {
+            content:
+              "Benchmark similar emergency outsourcing services among competitors to refine your own value prop.",
+            value: 5,
+            effort: 4,
+          },
+          {
+            content:
+              "Approach Israeli startups struggling with continuity and offer a 2-week pilot of your offshore teams.",
+            value: 8,
+            effort: 6,
+          },
+          {
+            content:
+              "Develop co-branded case studies with major clients (e.g., McDonald's, Teva) to build trust in emergency deployments.",
+            value: 10,
+            effort: 7,
+          },
+        ],
+      },
+      impact: "high",
+      links: [
+        "https://www.linkedin.com/posts/one1_%D7%97%D7%91%D7%A8%D7%AA-one-%D7%9E%D7%AA%D7%92%D7%99%D7%99%D7%A1%D7%AA-%D7%9C%D7%9E%D7%A2%D7%9F-%D7%94%D7%94%D7%99%D7%99%D7%98%D7%A7-%D7%94%D7%99%D7%A9%D7%A8%D7%90%D7%9C%D7%99-%D7%9B%D7%A9%D7%97%D7%91%D7%A8%D7%95%D7%AA-activity-7341116256076406786-3iUP",
+      ],
+    },
+    {
+      company: "ONE Technologies",
+      homepage: "https://one1.co.il",
+      insight: {
+        title: "ERP Sleeve Flip Campaign",
+        summary:
+          "ONE Technologies is running a Facebook campaign promoting its expertise in 'sleeve flip'—a strategic restructuring process relevant during crises like war. They highlight recent success in converting an Israeli parent company into a U.S. subsidiary within an ERP system, emphasizing speed, data integrity, and compliance. This positions them as a go-to partner for structural agility in emergency scenarios.",
+        proposedActions: [
+          {
+            content:
+              "Assess if your company would benefit from a 'sleeve flip' model for easier acquisition or international expansion, especially in volatile markets.",
+            value: 7,
+            effort: 5,
+          },
+          {
+            content:
+              "Repurpose their messaging style by highlighting your own company’s strategic agility and crisis-readiness on LinkedIn or other platforms.",
+            value: 6,
+            effort: 3,
+          },
+          {
+            content:
+              "Offer ERP re-structuring consulting services or workshops to mid-sized clients exposed to geopolitical risk.",
+            value: 8,
+            effort: 6,
+          },
+        ],
+      },
+      impact: "high",
+      links: [
+        "https://www.linkedin.com/posts/one1_%D7%9E%D7%94-%D7%96%D7%94-%D7%94%D7%99%D7%A4%D7%95%D7%9A-%D7%A9%D7%A8%D7%95%D7%95%D7%9C-%D7%95%D7%90%D7%99%D7%9A-%D7%94%D7%95%D7%90-%D7%A7%D7%A9%D7%95%D7%A8-%D7%9C%D7%9E%D7%9C%D7%97%D7%9E%D7%94-activity-7343227114860507143-mL2A",
+        "https://scontent.ftlv6-1.fna.fbcdn.net/v/t39.35426-6/511190529_1628823981134971_3223752002443388646_n.jpg",
+        "https://www.facebook.com/One1.co.il/",
       ],
     },
   ],
