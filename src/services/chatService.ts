@@ -25,54 +25,139 @@ dotenv.config();
 
 // Define tools for the LLM to generate cards
 const generateQuickWinsTool = tool(
-  async ({ title, items, description }) => {
+  async ({ title, items, description, requestedCount, userMessage }) => {
     console.log("🔧 TOOL CALLED: generate_quick_wins", {
       title,
       itemsCount: items?.length,
       description,
+      requestedCount,
+      userMessage,
     });
 
-    // Extract quick wins from the actual data
-    const quickWinActions = data.aiInsights
-      .flatMap((insight) =>
-        insight.insight.proposedActions
-          .filter((action) => action.value >= 6 && action.effort <= 5) // High value, low-medium effort
-          .map((action) => ({
-            title: action.content.split(".")[0].trim(), // Use first sentence as title
-            priority:
-              action.value >= 8 ? "high" : action.value >= 7 ? "medium" : "low",
-            reason: `Based on ${
-              insight.company
-            }'s recent activity: ${insight.insight.summary.substring(
-              0,
-              150
-            )}...`,
-            nextSteps: action.content,
-            impact: `Value score: ${action.value}/10, Effort: ${action.effort}/10. ${insight.insight.title}`,
-            company: insight.company,
-            valueScore: action.value,
-            effortScore: action.effort,
-          }))
-      )
-      .sort(
-        (a, b) => b.valueScore / b.effortScore - a.valueScore / a.effortScore
-      ) // Sort by value-to-effort ratio
-      .slice(0, 5); // Take top 5
+    // Use LLM to analyze user request and generate contextually relevant quick wins
+    const analysisLLM = new ChatOpenAI({
+      modelName: "gpt-4o",
+      temperature: 0.2,
+      streaming: false,
+      openAIApiKey: process.env.OPENAI_API_KEY,
+    });
 
-    return {
-      type: "quick-wins",
-      title: title || "Market Intelligence Quick Wins",
-      description:
-        description ||
-        "Actionable opportunities based on competitor analysis and market intelligence",
-      items: quickWinActions.map((action) => ({
-        title: action.title,
-        priority: action.priority,
-        reason: action.reason,
-        nextSteps: action.nextSteps,
-        impact: action.impact,
-      })),
-    };
+    const dataString = JSON.stringify(data.aiInsights, null, 2);
+
+    const analysisPrompt = `You are analyzing a user's request for quick wins and have access to comprehensive market intelligence data.
+
+User's message: "${userMessage}"
+Requested count: ${requestedCount || 5}
+
+Here is the complete market intelligence data:
+${dataString}
+
+Based on the user's specific request and the available data, generate ${
+      requestedCount || 5
+    } highly relevant quick wins that:
+
+1. Are contextually relevant to what the user is asking for
+2. Are based on the actual market intelligence data provided
+3. Have high value (6+) and reasonable effort (≤6) 
+4. Include specific company context from the data
+5. Are actionable and specific
+
+For each quick win, provide:
+- title: A clear, actionable title (6-8 words)
+- priority: "high" (value 8+), "medium" (value 7), or "low" (value 6)
+- reason: Why this is important based on the specific company's situation
+- nextSteps: Specific actions to take (from the data)
+- impact: Expected impact including value/effort scores
+
+Pay attention to:
+- If user asks about specific companies, prioritize those
+- If user asks about specific topics (SEO, traffic, partnerships, etc.), focus on relevant insights
+- If user asks for general quick wins, select the highest value-to-effort ratio items
+- Match the tone and focus of their request
+
+Respond in this exact JSON format:
+{
+  "quickWins": [
+    {
+      "title": "Action title here",
+      "priority": "high|medium|low",
+      "reason": "Why this matters based on company context",
+      "nextSteps": "Specific actions to take",
+      "impact": "Expected impact with value/effort scores"
+    }
+  ]
+}`;
+
+    try {
+      const response = await analysisLLM.invoke([
+        new HumanMessage(analysisPrompt),
+      ]);
+      const responseContent = response.content?.toString() || "";
+
+      // Clean the response by removing markdown code blocks if present
+      const cleanedResponse = responseContent
+        .replace(/```json\s*/gi, "")
+        .replace(/```\s*/g, "")
+        .trim();
+
+      const analysis = JSON.parse(cleanedResponse);
+
+      return {
+        type: "quick-wins",
+        title: title || "Market Intelligence Quick Wins",
+        description:
+          description ||
+          `Contextual opportunities based on your request and analysis of ${data.aiInsights.length} companies`,
+        items: analysis.quickWins,
+      };
+    } catch (error) {
+      console.error("❌ Error generating contextual quick wins:", error);
+
+      // Fallback to original logic if LLM analysis fails
+      const quickWinActions = data.aiInsights
+        .flatMap((insight) =>
+          insight.insight.proposedActions
+            .filter((action) => action.value >= 6 && action.effort <= 5)
+            .map((action) => ({
+              title: action.content.split(".")[0].trim(),
+              priority:
+                action.value >= 8
+                  ? "high"
+                  : action.value >= 7
+                  ? "medium"
+                  : "low",
+              reason: `Based on ${
+                insight.company
+              }'s recent activity: ${insight.insight.summary.substring(
+                0,
+                150
+              )}...`,
+              nextSteps: action.content,
+              impact: `Value score: ${action.value}/10, Effort: ${action.effort}/10. ${insight.insight.title}`,
+              valueScore: action.value,
+              effortScore: action.effort,
+            }))
+        )
+        .sort(
+          (a, b) => b.valueScore / b.effortScore - a.valueScore / a.effortScore
+        )
+        .slice(0, requestedCount || 5);
+
+      return {
+        type: "quick-wins",
+        title: title || "Market Intelligence Quick Wins",
+        description:
+          description ||
+          `Actionable opportunities based on competitor analysis and market intelligence from ${data.aiInsights.length} companies`,
+        items: quickWinActions.map((action) => ({
+          title: action.title,
+          priority: action.priority,
+          reason: action.reason,
+          nextSteps: action.nextSteps,
+          impact: action.impact,
+        })),
+      };
+    }
   },
   {
     name: "generate_quick_wins",
@@ -81,6 +166,15 @@ const generateQuickWinsTool = tool(
     schema: z.object({
       title: z.string().describe("Title for quick wins").optional(),
       description: z.string().optional().describe("Optional description"),
+      requestedCount: z
+        .number()
+        .describe(
+          "Number of quick wins requested by the user (extract from their message, default to 5 if not specified)"
+        )
+        .optional(),
+      userMessage: z
+        .string()
+        .describe("The user's original message/request to understand context"),
       items: z
         .array(
           z.object({
@@ -647,16 +741,28 @@ Assistant: ${aiResponse}
 
 Available market intelligence: ${searchResults.length} relevant insights found.
 
-Analyze if the user's request would benefit from interactive cards. Use the available tools to generate appropriate cards when:
+Analyze the user's request carefully and generate contextually relevant quick wins:
 
-1. User asks for GENERATING or CREATING completely NEW quick wins from scratch → use generate_quick_wins
+1. Extract the number of quick wins requested (if specified)
+2. Understand the context and focus of their request
+3. Pass the user's original message to the tool for contextual analysis
+
+Use the generate_quick_wins tool when:
+- User asks for GENERATING or CREATING completely NEW quick wins from scratch
+
+The tool will use an LLM to analyze the user's specific request against the market intelligence data to generate the most relevant quick wins.
 
 Do NOT use tools when the user is:
 - Asking for help with existing quick wins (prioritizing, implementing, analyzing)
 - Discussing quick wins they already have
 - Asking implementation questions about existing items
 
-Only generate cards that add value to the conversation and when the user is specifically requesting NEW actionable quick wins to be created.`;
+When calling the tool, make sure to pass:
+- requestedCount: The number they asked for (extract from their message)
+- userMessage: Their exact original message for context
+- title and description: Optional customization
+
+The tool will automatically analyze their request against real market intelligence data from companies like Elad Software Systems, iCloudius, Asperii, Top Vision, and ONE Technologies to provide the most contextually relevant quick wins.`;
 
     const response = await llmWithTools.invoke([
       new HumanMessage(cardGenerationPrompt),
