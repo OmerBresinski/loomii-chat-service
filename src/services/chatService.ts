@@ -67,7 +67,7 @@ For each quick win, provide:
 - priority: "high" (value 8+), "medium" (value 7), or "low" (value 6)
 - reason: Why this is important based on the specific company's situation
 - nextSteps: Specific actions to take (from the data)
-- impact: Expected impact including value/effort scores
+- impact: Expected impact on the company's business
 
 Pay attention to:
 - If user asks about specific companies, prioritize those
@@ -83,7 +83,7 @@ Respond in this exact JSON format:
       "priority": "high|medium|low",
       "reason": "Why this matters based on company context",
       "nextSteps": "Specific actions to take",
-      "impact": "Expected impact with value/effort scores"
+      "impact": "Expected impact on the company's business"
     }
   ]
 }`;
