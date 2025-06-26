@@ -18,6 +18,7 @@ import {
   getInsightsByImpact,
 } from "./vectorStore";
 import { Document } from "@langchain/core/documents";
+import { data } from "./data";
 
 // Load environment variables
 dotenv.config();
@@ -30,11 +31,47 @@ const generateQuickWinsTool = tool(
       itemsCount: items?.length,
       description,
     });
+
+    // Extract quick wins from the actual data
+    const quickWinActions = data.aiInsights
+      .flatMap((insight) =>
+        insight.insight.proposedActions
+          .filter((action) => action.value >= 6 && action.effort <= 5) // High value, low-medium effort
+          .map((action) => ({
+            title: action.content.split(".")[0].trim(), // Use first sentence as title
+            priority:
+              action.value >= 8 ? "high" : action.value >= 7 ? "medium" : "low",
+            reason: `Based on ${
+              insight.company
+            }'s recent activity: ${insight.insight.summary.substring(
+              0,
+              150
+            )}...`,
+            nextSteps: action.content,
+            impact: `Value score: ${action.value}/10, Effort: ${action.effort}/10. ${insight.insight.title}`,
+            company: insight.company,
+            valueScore: action.value,
+            effortScore: action.effort,
+          }))
+      )
+      .sort(
+        (a, b) => b.valueScore / b.effortScore - a.valueScore / a.effortScore
+      ) // Sort by value-to-effort ratio
+      .slice(0, 5); // Take top 5
+
     return {
       type: "quick-wins",
-      title,
-      description,
-      items,
+      title: title || "Market Intelligence Quick Wins",
+      description:
+        description ||
+        "Actionable opportunities based on competitor analysis and market intelligence",
+      items: quickWinActions.map((action) => ({
+        title: action.title,
+        priority: action.priority,
+        reason: action.reason,
+        nextSteps: action.nextSteps,
+        impact: action.impact,
+      })),
     };
   },
   {
@@ -42,7 +79,7 @@ const generateQuickWinsTool = tool(
     description:
       "ONLY use this tool when the user is explicitly asking you to GENERATE, CREATE, or SUGGEST NEW quick wins from scratch. Do NOT use this tool when the user is discussing, analyzing, prioritizing, implementing, or asking for help with EXISTING quick wins they already have (e.g., 'help me prioritize these quick wins', 'how do I implement this quick win', 'which of these should I do first', 'help me split this quick win into tasks'). Only use when they want you to suggest completely NEW quick wins they don't already have.",
     schema: z.object({
-      title: z.string().describe("Title for quick wins"),
+      title: z.string().describe("Title for quick wins").optional(),
       description: z.string().optional().describe("Optional description"),
       items: z
         .array(
@@ -64,7 +101,8 @@ const generateQuickWinsTool = tool(
               .describe("What impact will it have, concise 2-3 sentences"),
           })
         )
-        .describe("List of quick win items"),
+        .describe("List of quick win items")
+        .optional(),
     }),
   }
 );
